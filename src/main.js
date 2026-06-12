@@ -123,14 +123,19 @@ class Game {
 
   setupEvents() {
     document.querySelectorAll('[data-action]').forEach(btn => {
-      btn.addEventListener('click', (e) => this.handleAction(e.target.dataset.action));
+      btn.addEventListener('click', (e) => {
+        const el = e.target.closest('[data-action]');
+        if (el) this.handleAction(el.dataset.action);
+      });
     });
 
     document.querySelectorAll('[data-speed]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        this.battleSpeed = parseFloat(e.target.dataset.speed);
+        const el = e.target.closest('[data-speed]');
+        if (!el) return;
+        this.battleSpeed = parseFloat(el.dataset.speed);
         document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
+        el.classList.add('active');
       });
     });
 
