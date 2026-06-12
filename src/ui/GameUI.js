@@ -23,7 +23,8 @@ export class GameUI {
       minimapCanvas: document.getElementById('minimap-canvas'),
       hintBar: document.getElementById('hint-bar'),
       armyPreview: document.getElementById('army-preview'),
-      fightBtn: document.getElementById('fight-btn')
+      fightBtn: document.getElementById('fight-btn'),
+      deployZone: document.getElementById('deploy-zone')
     };
     this.currentScreen = 'splash';
     this._hintTimeout = null;
@@ -55,6 +56,14 @@ export class GameUI {
   updateUnitCount(current, max) {
     if (this.elements.unitCountDisplay) {
       this.elements.unitCountDisplay.textContent = `${current} / ${max}`;
+    }
+    // Show/hide deploy zone based on unit count
+    if (this.elements.deployZone) {
+      if (current > 0) {
+        this.elements.deployZone.classList.add('hidden');
+      } else {
+        this.elements.deployZone.classList.remove('hidden');
+      }
     }
   }
 
