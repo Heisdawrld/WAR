@@ -1,0 +1,19 @@
+{
+  "name": "warzone-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Epic Battle Sandbox Simulator - Army vs Army",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.170.0",
+    "howler": "^2.2.4"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
