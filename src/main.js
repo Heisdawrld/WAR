@@ -173,6 +173,30 @@ class Game {
       }
     });
 
+    // Also listen on army-builder screen for tap-through to canvas
+    const armyBuilderScreen = document.getElementById('army-builder');
+    if (armyBuilderScreen) {
+      armyBuilderScreen.addEventListener('pointerdown', (e) => {
+        if (this.state !== 'army-builder') return;
+        const inTop = e.target.closest('.builder-top');
+        const inBottom = e.target.closest('.builder-bottom');
+        if (!inTop && !inBottom) {
+          this.placeUnitOnTerrain({ clientX: e.clientX, clientY: e.clientY, target: canvas });
+          this._isPainting = true;
+        }
+      });
+      armyBuilderScreen.addEventListener('pointermove', (e) => {
+        if (this.state !== 'army-builder' || !this._isPainting) return;
+        const inTop = e.target.closest('.builder-top');
+        const inBottom = e.target.closest('.builder-bottom');
+        if (!inTop && !inBottom) {
+          this.placeUnitOnTerrain({ clientX: e.clientX, clientY: e.clientY, target: canvas });
+        }
+      });
+      armyBuilderScreen.addEventListener('pointerup', () => { this._isPainting = false; });
+      armyBuilderScreen.addEventListener('pointercancel', () => { this._isPainting = false; });
+    }
+
     // Resize
     window.addEventListener('resize', () => {
       this.renderer.setSize(window.innerWidth, window.innerHeight);

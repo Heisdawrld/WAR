@@ -47,7 +47,7 @@
     }
 
     #app { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; }
-    canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    canvas#game-canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; }
 
     /* ═══════════════════════ SCREENS ═══════════════════════ */
     .screen {
@@ -231,9 +231,10 @@
 
     /* ═══════════════════════ ARMY BUILDER ═══════════════════════ */
     #army-builder {
-      background: rgba(0, 0, 0, 0.6);
+      background: transparent;
       flex-direction: column; justify-content: flex-end;
       padding: 0; pointer-events: none;
+      z-index: 10;
     }
 
     .builder-top {
