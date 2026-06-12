@@ -190,13 +190,8 @@ class Game {
   handleAction(action) {
     switch (action) {
       case 'quick-battle':
-        this.audio.init();
-        this.audio.resume();
-        this.startArmyBuilder();
-        break;
       case 'sandbox':
-        this.audio.init();
-        this.audio.resume();
+        try { this.audio.init(); this.audio.resume(); } catch(e) {}
         this.startArmyBuilder();
         break;
       case 'start-battle':
