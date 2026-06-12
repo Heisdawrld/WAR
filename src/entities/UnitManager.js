@@ -31,7 +31,7 @@ export class UnitManager {
         roughness: 0.7,
         metalness: 0.1
       });
-      const bodyMesh = new THREE.InstancedMesh(bodyGeo, bodyMat, MAX_UNITS / 2);
+      const bodyMesh = new THREE.InstancedMesh(bodyGeo, bodyMat, MAX_UNITS);
       bodyMesh.castShadow = true;
       bodyMesh.receiveShadow = true;
       bodyMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -43,7 +43,7 @@ export class UnitManager {
         roughness: 0.6,
         metalness: 0.0
       });
-      const headMesh = new THREE.InstancedMesh(headGeo, headMat, MAX_UNITS / 2);
+      const headMesh = new THREE.InstancedMesh(headGeo, headMat, MAX_UNITS);
       headMesh.castShadow = true;
       headMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       group.add(headMesh);
@@ -54,7 +54,7 @@ export class UnitManager {
         roughness: 0.5,
         metalness: 0.3
       });
-      const baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, MAX_UNITS / 2);
+      const baseMesh = new THREE.InstancedMesh(baseGeo, baseMat, MAX_UNITS);
       baseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       group.add(baseMesh);
 
@@ -206,6 +206,8 @@ export class UnitManager {
     const blueAlive = this.getAliveCount('blue');
     const redTotal = this.units.filter(u => u.side === 'red').length;
     const blueTotal = this.units.filter(u => u.side === 'blue').length;
-    return { redAlive, blueAlive, redTotal, blueTotal };
+    const redHp = this.getArmyHP('red');
+    const blueHp = this.getArmyHP('blue');
+    return { redAlive, blueAlive, redTotal, blueTotal, redHp, blueHp };
   }
 }

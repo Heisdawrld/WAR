@@ -57,6 +57,7 @@ class Game {
     this.projectiles.setUnitManager(this.unitManager);
     this.particles = new ParticleSystem(this.scene);
     this.behavior = new BehaviorTree(this.unitManager, this.terrain);
+    this.behavior.setParticles(this.particles);
     this.formation = new Formation();
     this.ui.setLoaderProgress(75);
 
@@ -315,32 +316,14 @@ class Game {
     const units = this.unitManager.getAliveUnits();
     for (const unit of units) {
       if (unit.attackCooldown > 0 || !unit.alive) continue;
+      if (!unit.typeData.isRanged) continue;
 
       const enemy = this.unitManager.findNearestEnemyInRange(unit);
       if (!enemy) continue;
 
       const dist = unit.position.distanceTo(enemy.position);
-
-      if (unit.typeData.isRanged && dist <= unit.typeData.range) {
+      if (dist <= unit.typeData.range) {
         this.projectiles.spawn(unit, enemy, unit.typeData.damage);
-        unit.attackCooldown = 1 / unit.typeData.attackSpeed;
-      } else if (!unit.typeData.isRanged && dist <= unit.typeData.range) {
-        let damage = unit.typeData.damage;
-
-        if (unit.typeData.special === 'charge') {
-          const speed = unit.velocity.length();
-          if (speed > 5) damage *= 1.5;
-        }
-
-        enemy.hp -= damage;
-        this.particles.blood(enemy.position);
-
-        if (enemy.hp <= 0) {
-          enemy.alive = false;
-          enemy.hp = 0;
-          this.particles.dust(enemy.position);
-        }
-
         unit.attackCooldown = 1 / unit.typeData.attackSpeed;
       }
     }

@@ -5,6 +5,11 @@ export class BehaviorTree {
     this.unitManager = unitManager;
     this.terrain = terrain;
     this.engageRange = 40;
+    this.particles = null;
+  }
+
+  setParticles(particles) {
+    this.particles = particles;
   }
 
   update(delta) {
@@ -79,12 +84,16 @@ export class BehaviorTree {
   dealDamage(attacker, target) {
     let damage = attacker.typeData.damage;
 
-    if (attacker.typeData.special === 'shield' && Math.random() < 0.25) {
-      damage *= 0;
+    if (attacker.typeData.special === 'shield' && Math.random() < attacker.typeData.shieldChance) {
+      damage = 0;
     }
 
     if (attacker.typeData.special === 'antiCavalry' && target.type === 'knight') {
       damage *= attacker.typeData.bonusVsCavalry;
+    }
+
+    if (attacker.typeData.special === 'charge' && attacker.state === 'chase') {
+      damage *= 1.5;
     }
 
     if (attacker.typeData.special === 'flank') {
@@ -100,9 +109,11 @@ export class BehaviorTree {
     }
 
     target.hp -= damage;
+    if (this.particles && damage > 0) this.particles.blood(target.position);
     if (target.hp <= 0) {
       target.alive = false;
       target.hp = 0;
+      if (this.particles) this.particles.dust(target.position);
     }
 
     return { attacker, target, damage, type: 'melee' };
