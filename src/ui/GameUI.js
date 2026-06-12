@@ -7,6 +7,7 @@ export class GameUI {
       battleScreen: document.getElementById('battle-screen'),
       results: document.getElementById('results'),
       loaderBar: document.getElementById('loader-bar'),
+      loaderPercent: document.getElementById('loader-percent'),
       unitCountDisplay: document.getElementById('unit-count-display'),
       activeSideLabel: document.getElementById('active-side-label'),
       redCount: document.getElementById('red-count'),
@@ -14,6 +15,7 @@ export class GameUI {
       redHp: document.getElementById('red-hp'),
       blueHp: document.getElementById('blue-hp'),
       battleTimer: document.getElementById('battle-timer'),
+      resultBadge: document.getElementById('result-badge'),
       resultTitle: document.getElementById('result-title'),
       statsGrid: document.getElementById('stats-grid'),
       unitCarousel: document.getElementById('unit-carousel'),
@@ -41,6 +43,9 @@ export class GameUI {
     if (this.elements.loaderBar) {
       this.elements.loaderBar.style.width = `${pct}%`;
     }
+    if (this.elements.loaderPercent) {
+      this.elements.loaderPercent.textContent = `${Math.round(pct)}%`;
+    }
   }
 
   updateUnitCount(current, max) {
@@ -52,8 +57,8 @@ export class GameUI {
   updateBattleHUD(stats) {
     if (this.elements.redCount) this.elements.redCount.textContent = stats.redAlive;
     if (this.elements.blueCount) this.elements.blueCount.textContent = stats.blueAlive;
-    if (this.elements.redHp) this.elements.redHp.style.width = `${stats.redHp * 100}%`;
-    if (this.elements.blueHp) this.elements.blueHp.style.width = `${stats.blueHp * 100}%`;
+    if (this.elements.redHp) this.elements.redHp.style.width = `${(stats.redHp || 0) * 100}%`;
+    if (this.elements.blueHp) this.elements.blueHp.style.width = `${(stats.blueHp || 0) * 100}%`;
   }
 
   updateTimer(seconds) {
@@ -64,14 +69,20 @@ export class GameUI {
 
   showResults(winner, stats) {
     this.showScreen('results');
+    if (this.elements.resultBadge) {
+      this.elements.resultBadge.textContent = winner === 'red' ? 'VICTORY' : 'DEFEAT';
+      this.elements.resultBadge.className = `result-badge ${winner === 'red' ? 'victory' : 'defeat'}`;
+    }
     if (this.elements.resultTitle) {
       this.elements.resultTitle.textContent = winner === 'red' ? 'RED ARMY WINS' : 'BLUE ARMY WINS';
-      this.elements.resultTitle.className = winner === 'red' ? 'victory' : 'defeat';
+      this.elements.resultTitle.className = `result-title ${winner === 'red' ? 'victory' : 'defeat'}`;
     }
     if (this.elements.statsGrid) {
+      const winColor = winner === 'red' ? '#ff4444' : '#4488ff';
+      const loseColor = winner === 'red' ? '#4488ff' : '#ff4444';
       this.elements.statsGrid.innerHTML = `
-        <div class="stat-item"><div class="stat-value" style="color:${winner === 'red' ? '#ff4444' : '#4488ff'}">${stats.redAlive}</div><div class="stat-label">Red Survivors</div></div>
-        <div class="stat-item"><div class="stat-value" style="color:${winner === 'blue' ? '#ff4444' : '#4488ff'}">${stats.blueAlive}</div><div class="stat-label">Blue Survivors</div></div>
+        <div class="stat-item"><div class="stat-value" style="color:${winColor}">${stats.redAlive}</div><div class="stat-label">Red Survivors</div></div>
+        <div class="stat-item"><div class="stat-value" style="color:${loseColor}">${stats.blueAlive}</div><div class="stat-label">Blue Survivors</div></div>
         <div class="stat-item"><div class="stat-value">${stats.redTotal}</div><div class="stat-label">Red Deployed</div></div>
         <div class="stat-item"><div class="stat-value">${stats.blueTotal}</div><div class="stat-label">Blue Deployed</div></div>
       `;

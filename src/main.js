@@ -190,10 +190,12 @@ class Game {
     if (sideCount >= 250) return;
 
     this.unitManager.addUnit(this.selectedUnitType, intersect, this.activeSide);
+    this.audio.playSfx('place');
     this.ui.updateUnitCount(this.unitManager.getAliveCount(this.activeSide), 250);
   }
 
   handleAction(action) {
+    this.audio.playSfx('click');
     switch (action) {
       case 'quick-battle':
       case 'sandbox':
@@ -249,6 +251,7 @@ class Game {
     this.assignFormations('blue', this.blueUnits);
 
     this.battleTime = 0;
+    this.audio.playSfx('fight');
     this.ui.showScreen('battle');
     this.state = 'battle';
     this.ui.updateBattleHUD(this.unitManager.getStats());
@@ -301,6 +304,7 @@ class Game {
 
       if (stats.redAlive === 0 || stats.blueAlive === 0) {
         const winner = stats.redAlive > 0 ? 'red' : 'blue';
+        this.audio.playSfx(winner === 'red' ? 'victory' : 'defeat');
         this.ui.showResults(winner, stats);
         this.state = 'results';
       }
