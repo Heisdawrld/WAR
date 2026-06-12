@@ -20,9 +20,13 @@ export class GameUI {
       statsGrid: document.getElementById('stats-grid'),
       unitCarousel: document.getElementById('unit-carousel'),
       formationTools: document.getElementById('formation-tools'),
-      minimapCanvas: document.getElementById('minimap-canvas')
+      minimapCanvas: document.getElementById('minimap-canvas'),
+      hintBar: document.getElementById('hint-bar'),
+      armyPreview: document.getElementById('army-preview'),
+      fightBtn: document.getElementById('fight-btn')
     };
     this.currentScreen = 'splash';
+    this._hintTimeout = null;
   }
 
   showScreen(name) {
@@ -52,6 +56,42 @@ export class GameUI {
     if (this.elements.unitCountDisplay) {
       this.elements.unitCountDisplay.textContent = `${current} / ${max}`;
     }
+  }
+
+  updateArmyPreview(composition) {
+    const el = this.elements.armyPreview;
+    if (!el) return;
+    const entries = Object.entries(composition);
+    if (entries.length === 0) {
+      el.innerHTML = '<span class="preview-empty">No units deployed</span>';
+      return;
+    }
+    el.innerHTML = entries.map(([type, count]) =>
+      `<span class="preview-item"><span class="preview-count">${count}</span> ${type}</span>`
+    ).join('');
+  }
+
+  showHint(text) {
+    const el = this.elements.hintBar;
+    if (!el) return;
+    el.textContent = text;
+    el.classList.add('visible');
+    clearTimeout(this._hintTimeout);
+    this._hintTimeout = setTimeout(() => this.hideHint(), 8000);
+  }
+
+  hideHint() {
+    const el = this.elements.hintBar;
+    if (!el) return;
+    el.classList.remove('visible');
+    clearTimeout(this._hintTimeout);
+  }
+
+  shakeFightButton() {
+    const btn = this.elements.fightBtn || document.querySelector('[data-action="start-battle"]');
+    if (!btn) return;
+    btn.classList.add('shake');
+    setTimeout(() => btn.classList.remove('shake'), 600);
   }
 
   updateBattleHUD(stats) {

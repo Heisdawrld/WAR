@@ -370,6 +370,13 @@
     }
     .unit-card.selected .unit-name { color: var(--fire-orange); }
 
+    .unit-card .unit-stats {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.4rem; font-weight: 400;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
     .builder-actions {
       display: flex; gap: 0.5rem;
       padding: 0.5rem 1rem 0.8rem;
@@ -638,6 +645,88 @@
     @media (min-width: 1200px) {
       .stats-grid { gap: 1.5rem 4rem; padding: 2rem 3rem; }
     }
+
+    /* ═══════════════════════ HINT BAR ═══════════════════════ */
+    .hint-bar {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 0.8rem 2rem;
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      text-align: center;
+      max-width: 90vw;
+      z-index: 20;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    }
+    .hint-bar.visible {
+      opacity: 1;
+    }
+
+    /* ═══════════════════════ ARMY PREVIEW ═══════════════════════ */
+    .army-preview {
+      display: flex; gap: 0.6rem; flex-wrap: wrap;
+      justify-content: center;
+      padding: 0.3rem 1rem;
+      min-height: 1.2rem;
+    }
+    .army-preview .preview-empty {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+    .army-preview .preview-item {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.5rem;
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+    .army-preview .preview-count {
+      color: var(--fire-orange);
+      font-weight: 700;
+    }
+
+    /* ═══════════════════════ SHAKE ANIMATION ═══════════════════════ */
+    @keyframes shakeBtn {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+      20%, 40%, 60%, 80% { transform: translateX(4px); }
+    }
+    .game-btn.shake {
+      animation: shakeBtn 0.5s ease;
+      border-color: rgba(255, 51, 51, 0.5) !important;
+      box-shadow: 0 0 20px rgba(255, 51, 51, 0.2) !important;
+    }
+
+    /* Quick fill button */
+    .quick-fill-btn {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.5rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
+      padding: 0.3rem 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .quick-fill-btn:hover {
+      color: var(--text-secondary);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
   </style>
 </head>
 <body>
@@ -678,17 +767,22 @@
 
     <!-- ═══════════ ARMY BUILDER ═══════════ -->
     <div id="army-builder" class="screen hidden">
+      <div class="hint-bar" id="hint-bar"></div>
       <div class="builder-top">
         <span class="army-label red" id="active-side-label">RED ARMY</span>
         <span class="unit-count" id="unit-count-display">0 / 250</span>
-        <span class="side-toggle" id="side-toggle">BLUE →</span>
+        <button class="side-toggle" id="side-toggle">BLUE →</button>
       </div>
       <div class="builder-bottom">
+        <div class="army-preview" id="army-preview">
+          <span class="preview-empty">No units deployed</span>
+        </div>
         <div class="formation-tools" id="formation-tools"></div>
         <div class="unit-carousel" id="unit-carousel"></div>
         <div class="builder-actions">
           <button class="game-btn danger" data-action="clear-units">Clear</button>
-          <button class="game-btn primary" data-action="start-battle">FIGHT!</button>
+          <button class="game-btn primary" data-action="start-battle" id="fight-btn">⚔️ FIGHT!</button>
+          <button class="quick-fill-btn" id="quick-fill-btn">Quick Fill</button>
         </div>
       </div>
     </div>

@@ -26,12 +26,7 @@ class Game {
     this.selectedFormation = 'line';
     this.battleTime = 0;
     this.battleSpeed = 1;
-    this.redFormations = {};
-    this.blueFormations = {};
     this.lastProjectileSpawn = 0;
-
-    this.redUnits = [];
-    this.blueUnits = [];
 
     this.init();
   }
@@ -75,7 +70,7 @@ class Game {
     this.setupEvents();
     this.ui.setLoaderProgress(100);
 
-    await this.delay(800);
+    await this.delay(1200);
     this.ui.showScreen('main-menu');
     this.state = 'menu';
 
@@ -91,11 +86,16 @@ class Game {
       const card = document.createElement('div');
       card.className = `unit-card${id === this.selectedUnitType ? ' selected' : ''}`;
       card.dataset.type = id;
-      card.innerHTML = `<span class="unit-icon">${type.icon}</span><span class="unit-name">${type.name}</span>`;
+      card.innerHTML = `
+        <span class="unit-icon">${type.icon}</span>
+        <span class="unit-name">${type.name}</span>
+        <span class="unit-stats">${type.damage}dmg · ${type.hp}hp</span>
+      `;
       card.addEventListener('click', () => {
         container.querySelectorAll('.unit-card').forEach(c => c.classList.remove('selected'));
         card.classList.add('selected');
         this.selectedUnitType = id;
+        this.audio.playSfx('click');
       });
       container.appendChild(card);
     }
@@ -116,12 +116,14 @@ class Game {
         btn.classList.add('selected');
         this.selectedFormation = id;
         this.formation.setType(id);
+        this.audio.playSfx('click');
       });
       container.appendChild(btn);
     }
   }
 
   setupEvents() {
+    // Action buttons — use closest() for reliable event delegation
     document.querySelectorAll('[data-action]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const el = e.target.closest('[data-action]');
@@ -129,6 +131,7 @@ class Game {
       });
     });
 
+    // Speed buttons
     document.querySelectorAll('[data-speed]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const el = e.target.closest('[data-speed]');
@@ -136,36 +139,48 @@ class Game {
         this.battleSpeed = parseFloat(el.dataset.speed);
         document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
         el.classList.add('active');
+        this.audio.playSfx('click');
       });
     });
 
+    // Side toggle
     const sideToggle = document.getElementById('side-toggle');
     if (sideToggle) {
       sideToggle.addEventListener('click', () => {
         this.activeSide = this.activeSide === 'red' ? 'blue' : 'red';
         this.ui.setActiveSide(this.activeSide);
+        this.ui.updateUnitCount(this.unitManager.getAliveCount(this.activeSide), 250);
+        this.audio.playSfx('click');
       });
     }
 
+    // Quick fill button
+    const quickFillBtn = document.getElementById('quick-fill-btn');
+    if (quickFillBtn) {
+      quickFillBtn.addEventListener('click', () => this.quickFill());
+    }
+
+    // Canvas — place units on terrain
     const canvas = document.getElementById('game-canvas');
     canvas.addEventListener('pointerdown', (e) => {
       if (this.state === 'army-builder') {
         this.placeUnitOnTerrain(e);
       }
     });
-
     canvas.addEventListener('pointermove', (e) => {
       if (this.state === 'army-builder' && e.buttons === 1) {
         this.placeUnitOnTerrain(e);
       }
     });
 
+    // Resize
     window.addEventListener('resize', () => {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.camera.resize(window.innerWidth, window.innerHeight);
       if (this.postProcessing) this.postProcessing.resize(window.innerWidth, window.innerHeight);
     });
 
+    // Service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
@@ -192,10 +207,54 @@ class Game {
     this.unitManager.addUnit(this.selectedUnitType, intersect, this.activeSide);
     this.audio.playSfx('place');
     this.ui.updateUnitCount(this.unitManager.getAliveCount(this.activeSide), 250);
+    this.ui.updateArmyPreview(this.unitManager.getArmyComposition(this.activeSide));
+  }
+
+  quickFill() {
+    // Fill both armies quickly for testing
+    this.unitManager.clearAll();
+
+    const types = Object.keys(UNIT_TYPES);
+    const redCenter = new THREE.Vector3(-30, 0, 0);
+    const blueCenter = new THREE.Vector3(30, 0, 0);
+
+    // Red army: 50 swordsmen, 30 archers, 20 knights
+    this.fillArmy('red', [
+      { type: 'swordsman', count: 50 },
+      { type: 'archer', count: 30 },
+      { type: 'knight', count: 20 }
+    ], redCenter);
+
+    // Blue army: 40 spearmen, 30 musketeers, 30 horsemen
+    this.fillArmy('blue', [
+      { type: 'spearman', count: 40 },
+      { type: 'musketeer', count: 30 },
+      { type: 'horseman', count: 30 }
+    ], blueCenter);
+
+    this.ui.updateUnitCount(this.unitManager.getAliveCount(this.activeSide), 250);
+    this.ui.updateArmyPreview(this.unitManager.getArmyComposition(this.activeSide));
+    this.audio.playSfx('place');
+  }
+
+  fillArmy(side, groups, center) {
+    let offset = 0;
+    for (const group of groups) {
+      for (let i = 0; i < group.count; i++) {
+        const angle = (offset / 100) * Math.PI * 2;
+        const radius = 5 + (offset % 5) * 4;
+        const pos = new THREE.Vector3(
+          center.x + Math.cos(angle) * radius,
+          0,
+          center.z + Math.sin(angle) * radius
+        );
+        this.unitManager.addUnit(group.type, pos, side);
+        offset++;
+      }
+    }
   }
 
   handleAction(action) {
-    this.audio.playSfx('click');
     switch (action) {
       case 'quick-battle':
       case 'sandbox':
@@ -207,9 +266,10 @@ class Game {
         break;
       case 'clear-units':
         this.unitManager.clearAll();
-        this.redUnits = [];
-        this.blueUnits = [];
         this.ui.updateUnitCount(0, 250);
+        this.ui.updateArmyPreview({});
+        this.ui.hideHint();
+        this.audio.playSfx('click');
         break;
       case 'reset-battle':
         this.resetBattle();
@@ -223,18 +283,19 @@ class Game {
       case 'menu':
         this.ui.showScreen('main-menu');
         this.state = 'menu';
+        this.audio.playSfx('click');
         break;
     }
   }
 
   startArmyBuilder() {
     this.unitManager.clearAll();
-    this.redUnits = [];
-    this.blueUnits = [];
     this.activeSide = 'red';
     this.ui.setActiveSide('red');
     this.ui.updateUnitCount(0, 250);
+    this.ui.updateArmyPreview({});
     this.ui.showScreen('army-builder');
+    this.ui.showHint('Tap the battlefield to place units. Use the bottom panel to select unit types and formations.');
     this.state = 'army-builder';
   }
 
@@ -242,15 +303,25 @@ class Game {
     const redCount = this.unitManager.getAliveCount('red');
     const blueCount = this.unitManager.getAliveCount('blue');
 
-    if (redCount === 0 && blueCount === 0) return;
+    if (redCount === 0 && blueCount === 0) {
+      this.ui.showHint('⚠️ Place units on both sides before starting the battle! Tap the battlefield to deploy.');
+      this.ui.shakeFightButton();
+      this.audio.playSfx('hit');
+      return;
+    }
 
-    this.redUnits = this.unitManager.getUnitsBySide('red');
-    this.blueUnits = this.unitManager.getUnitsBySide('blue');
+    if (redCount === 0 || blueCount === 0) {
+      this.ui.showHint(`⚠️ ${redCount === 0 ? 'Red' : 'Blue'} army is empty! Switch sides and deploy units, or use Quick Fill.`);
+      this.ui.shakeFightButton();
+      this.audio.playSfx('hit');
+      return;
+    }
 
-    this.assignFormations('red', this.redUnits);
-    this.assignFormations('blue', this.blueUnits);
+    this.assignFormations('red', this.unitManager.getUnitsBySide('red'));
+    this.assignFormations('blue', this.unitManager.getUnitsBySide('blue'));
 
     this.battleTime = 0;
+    this.ui.hideHint();
     this.audio.playSfx('fight');
     this.ui.showScreen('battle');
     this.state = 'battle';
@@ -273,11 +344,13 @@ class Game {
 
   resetBattle() {
     this.startArmyBuilder();
+    this.audio.playSfx('click');
   }
 
   endBattle() {
     const stats = this.unitManager.getStats();
     const winner = stats.redAlive > stats.blueAlive ? 'red' : 'blue';
+    this.audio.playSfx(winner === 'red' ? 'victory' : 'defeat');
     this.ui.showResults(winner, stats);
     this.state = 'results';
   }

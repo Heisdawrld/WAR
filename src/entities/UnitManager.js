@@ -210,4 +210,14 @@ export class UnitManager {
     const blueHp = this.getArmyHP('blue');
     return { redAlive, blueAlive, redTotal, blueTotal, redHp, blueHp };
   }
+
+  getArmyComposition(side) {
+    const alive = this.units.filter(u => u.alive && u.side === side);
+    const comp = {};
+    for (const u of alive) {
+      const name = u.typeData.name;
+      comp[name] = (comp[name] || 0) + 1;
+    }
+    return comp;
+  }
 }
