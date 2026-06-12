@@ -1,0 +1,25 @@
+PASS 1. Page loads
+PASS 2. Title correct - WARZONE SANDBOX
+PASS 3. Splash visible
+PASS 4. Canvas exists
+PASS 5. Menu appears
+PASS 6. Quick Battle btn
+PASS 7. Sandbox btn
+PASS 8. Army Builder shows
+PASS 9. 8 unit types
+PASS 10. 4 formations
+PASS 11. Side=RED - RED ARMY
+FATAL: page.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('#game-canvas')[22m
+[2m    - locator resolved to <canvas width="1280" height="720" id="game-canvas" data-engine="three.js r170"></canvas>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is visible, enabled and stable[22m
+[2m      - scrolling into view if needed[22m
+[2m      - done scrolling[22m
+[2m      - <div class="screen" id="army-builder">…</div> intercepts pointer events[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    - waiting for element to be visible, enabled and stable[22m
+

@@ -37,7 +37,9 @@
     .game-btn.primary{border-color:#ff6600;background:linear-gradient(135deg,rgba(255,100,0,.3),rgba(255,50,0,.1))}
     .game-btn.primary:active{background:linear-gradient(135deg,rgba(255,100,0,.5),rgba(255,50,0,.3))}
 
-    #army-builder{background:rgba(0,0,0,.7);flex-direction:column;justify-content:flex-end;padding:0}
+    #army-builder{background:rgba(0,0,0,.7);flex-direction:column;justify-content:flex-end;padding:0;pointer-events:none}
+    #army-builder .builder-top{pointer-events:auto}
+    #army-builder .builder-bottom{pointer-events:auto}
     #army-builder .builder-top{position:absolute;top:0;left:0;width:100%;padding:env(safe-area-inset-top) 1rem .5rem;display:flex;justify-content:space-between;align-items:center;z-index:5}
     #army-builder .army-label{font-size:1.1rem;font-weight:700;letter-spacing:.1em}
     #army-builder .army-label.red{color:#ff4444}
