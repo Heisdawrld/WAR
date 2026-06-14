@@ -1,0 +1,2083 @@
+From f08843e98cd5829bf24c7b5f498261a5da58dcad Mon Sep 17 00:00:00 2001
+From: Arena x MiMo <collab@arena.ai>
+Date: Sun, 14 Jun 2026 02:30:03 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=20Phase=201=20complete=20=E2=80=94=20ECS?=
+ =?UTF-8?q?=20engine=20replaces=20monolith?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Arena.ai Agent × MiMo Code Agent collaboration:
+
+Vision (NORTH_STAR.md):
+- 0B platform vision: 'YouTube of combat simulation'
+- 6-phase roadmap (Foundation → Unify → Scale → Multiplayer → Economy)
+
+Phase 1 — ECS replaces monolith game loop:
+- UnitFactory: spawns entities with all 6 components
+- ProjectileSystem: ranged combat (arrows, bullets, AOE splash)
+- ECSUnitManager: drop-in replacement for UnitManager, ECS-backed
+- ECSGameController: drives AI → Projectiles → Combat → Cleanup
+- VisualProjectiles: flying arrow/bullet/rock meshes from ECS events
+- main.js: fully migrated to ECS (monolith BehaviorTree/handleCombat removed)
+
+Testing:
+- 57 assertions across 4 suites (all passing)
+- ecs-bridge: entity spawn + component queries
+- ecs-battle: full melee battle (10v10, winner, damage, kills)
+- ecs-ranged: archers + catapult AOE + mixed battles
+- ecs-integration: full game flow through ECSUnitManager
+
+Documentation:
+- README.md (was missing)
+- MEMORY.md updated with Phase 1 completion
+- PHASE1_BRIDGE.md, PHASE1_STEP2.md, PHASE1_STEP4.md specs
+---
+ MEMORY.md                       |  32 +++-
+ NORTH_STAR.md                   | 123 ++++++++++++++
+ PHASE1_BRIDGE.md                |  84 ++++++++++
+ PHASE1_STEP2.md                 |  89 ++++++++++
+ PHASE1_STEP4.md                 | 126 +++++++++++++++
+ README.md                       | 105 ++++++++++++
+ src/core/Bootstrapper.js        |   5 +-
+ src/ecs/ECSGameController.js    |  86 ++++++++++
+ src/ecs/ECSUnitManager.js       | 276 ++++++++++++++++++++++++++++++++
+ src/ecs/UnitFactory.js          |  65 ++++++++
+ src/ecs/VisualProjectiles.js    | 137 ++++++++++++++++
+ src/main.js                     |  42 ++---
+ src/systems/MovementSystem.js   |  37 +++++
+ src/systems/ProjectileSystem.js | 104 ++++++++++++
+ test/ecs-battle.test.js         | 150 +++++++++++++++++
+ test/ecs-bridge.test.js         |  64 ++++++++
+ test/ecs-integration.test.js    | 114 +++++++++++++
+ test/ecs-ranged.test.js         | 194 ++++++++++++++++++++++
+ 18 files changed, 1803 insertions(+), 30 deletions(-)
+ create mode 100644 NORTH_STAR.md
+ create mode 100644 PHASE1_BRIDGE.md
+ create mode 100644 PHASE1_STEP2.md
+ create mode 100644 PHASE1_STEP4.md
+ create mode 100644 README.md
+ create mode 100644 src/ecs/ECSGameController.js
+ create mode 100644 src/ecs/ECSUnitManager.js
+ create mode 100644 src/ecs/UnitFactory.js
+ create mode 100644 src/ecs/VisualProjectiles.js
+ create mode 100644 src/systems/MovementSystem.js
+ create mode 100644 src/systems/ProjectileSystem.js
+ create mode 100644 test/ecs-battle.test.js
+ create mode 100644 test/ecs-bridge.test.js
+ create mode 100644 test/ecs-integration.test.js
+ create mode 100644 test/ecs-ranged.test.js
+
+diff --git a/MEMORY.md b/MEMORY.md
+index 2c2ae37..f64dea8 100644
+--- a/MEMORY.md
++++ b/MEMORY.md
+@@ -40,7 +40,28 @@
+ 
+ ## 3. Status
+ ✅ Phase 0 files built (29 new files)
+-⏳ Pending integration into main.js
++✅ Phase 1 — ECS REPLACES MONOLITH (complete)
++  ├ Step 1: ECS bridge — UnitFactory + spawn/query pipeline (20 tests) ✅
++  ├ Step 2: Full melee battle proven headless (10 tests) ✅
++  ├ Step 3: MovementSystem fix (unregistered — redundant with BT) ✅
++  ├ Step 4: ProjectileSystem — ranged + AOE combat (14 tests) ✅
++  ├ Step 5: ECS wired into main.js via ECSUnitManager + ECSGameController ✅
++  └ Step 6: Integration test — full game flow through ECSUnitManager (13 tests) ✅
++
++Total: 57 assertions passing across 4 test suites. vite build succeeds.
++
++### Architecture after Phase 1
++- main.js uses ECSUnitManager (drop-in replacement for UnitManager)
++- ECSGameController drives AISystem → ProjectileSystem → CombatSystem → CleanupSystem
++- VisualProjectiles renders flying arrows/bullets/rocks from ECS events
++- ECS state syncs to legacy rendering proxies via syncFromECS() each frame
++- Monolith BehaviorTree.js + entities/Projectile.js + entities/UnitManager.js are DEPRECATED
++
++### Known Issues
++- MovementSystem.js exists but is unused (BT tasks handle movement). Repurpose for separation/avoidance in Phase 2.
++- Old monolith files (BehaviorTree.js, UnitManager.js, Projectile.js) still in repo — safe to delete after browser testing confirms ECS works.
++- Visual projectile quality is basic (simple meshes). Can be enhanced with trails/arcs.
++- Needs browser testing: 3D rendering, camera, UI screens, touch input, audio, PWA.
+ 
+ ## 4. Roadmap
+ | Phase | Description |
+@@ -61,3 +82,12 @@
+ ## 6. Session Log
+ ### Session 001 — 2026-06-13
+ Built: EventBus, Engine, ECS, StateMachine, SeedRandom, RenderSystem, AISystem, CombatSystem, CleanupSystem, behavior tree system, Bootstrapper. 29 files committed and pushed.
++
++### Session 002 — 2026-06-14 (Arena × MiMo collaboration)
++- Wrote $10B platform vision (NORTH_STAR.md) + 6-phase roadmap
++- Step 1: MiMo built UnitFactory + MovementSystem; Arena reviewed (20 tests pass)
++- Step 2: Proved ECS runs full melee battles headless (10 tests pass)
++- Step 4: MiMo built ProjectileSystem (ranged + AOE); Arena reviewed (14 tests pass)
++- Step 5: Arena built ECSUnitManager + ECSGameController + VisualProjectiles; wired into main.js
++- Step 6: Integration test proves full game flow (13 tests pass)
++- Phase 1 COMPLETE: ECS replaces monolith. 57 total assertions passing.
+diff --git a/NORTH_STAR.md b/NORTH_STAR.md
+new file mode 100644
+index 0000000..a366085
+--- /dev/null
++++ b/NORTH_STAR.md
+@@ -0,0 +1,123 @@
++# NORTH STAR — WARZONE: REIMAGINED
++> Co-authored plan: **Arena.ai Agent** × **MiMo Code Agent** × @Heisdawrld
++> Last Updated: 2026-06-14
++> Ambition: **$10B-scale platform**
++
++---
++
++## 0. THE HONEST STARTING POINT
++
++What exists today is a **solid, working demo**: a Three.js browser battle simulator
++(8 unit types, formations, projectiles, AI, post-processing, PWA). It runs. It's fun for 5 minutes.
++
++**But a demo is not a product, and a product is not a platform.** The $10B version of
++this is not "a better battle sim." It's a **platform** — the place where millions of people
++create, share, and spectate simulated warfare.
++
++The direct comparable isn't Totally Accurate Battle Simulator (which made ~$50M).
++It's **Roblox for combat** — a UGC engine + social loop + creator economy.
++
++---
++
++## 1. THE $10B VISION (5 sentences)
++
++**WARZONE is the "what-if engine for warfare"** — a browser-native platform where anyone
++composes armies from an asymmetrical, ever-growing roster, stages them on any terrain, and
++watches emergent tactical outcomes unfold at 60fps with thousands of units.
++
++**The long game is User-Generated Content**: custom unit types, maps, formations, and AI
++behaviors authored through a visual editor — turning every player into a game designer.
++
++**Multiplayer and replays make every simulation social and viral**: share a battle as a
++link, challenge a friend's army, watch top clashes as esports-style spectacles.
++
++**A creator economy (battle pass + cosmetic marketplace + creator revenue share)**
++monetizes the flywheel and incentivizes the best scenario designers.
++
++**The endgame is the YouTube of combat simulation** — a platform, not a game.
++
++---
++
++## 2. THE THREE PILLARS (highest leverage first)
++
++### 🏗 Pillar 1 — Unify the Architecture (THE BLOCKER)
++Two parallel engines exist: the working monolith (`src/engine` + `main.js`) and the
++unbuilt-but-superior ECS (`src/core` + `src/ecs` + `src/systems` + `src/ai`).
++**This is the most dangerous state a codebase can be in.** Every feature gets written twice.
++The ECS rots. The monolith grows roots.
++
++**Decision: BRIDGE, don't rewrite.** Keep `main.js` as the entry point but make it
++delegate to the ECS `Engine` + `World`. Port one system at a time. Delete the monolith's
++parallel code as each ECS system takes over. **Hard rule: no new features in the monolith.**
++
++### ⚡ Pillar 2 — Scale to 10,000+ Units
++InstancedMesh + dirty-flag rendering is the right pattern (already in `InstancedPool` /
++`RenderSystem`). The O(n²) brute-force `findNearestEnemy` must die — add a **uniform grid
++spatial hash** (simple, cache-friendly, perfect for uniform-density battlefields). This is
++what separates "cool demo" from "viral sandbox."
++
++### 🎨 Pillar 3 — The Content Authoring Layer (the flywheel)
++Unit types are hardcoded in `UnitTypes.js`. The ECS components are already decoupled.
++**Expose unit stats, BT tasks, and formations as data (JSON) → modding platform.**
++This is the growth engine. Every pillar after this one depends on it.
++
++---
++
++## 3. THE ROADMAP (Phases 0 → 5)
++
++| Phase | Goal | Status |
++|-------|------|--------|
++| **0 — Foundation** | ECS, Engine, EventBus, BT built | ✅ Done (but NOT integrated) |
++| **1 — Unify** | Monolith delegates to ECS; systems ported one-by-one; spatial hash | 🔴 IN PROGRESS |
++| **2 — Scale & Content** | 10K units; data-driven units/maps/formations; visual editor v1 | ⏳ |
++| **3 — Social** | Shareable battle links; deterministic replays; spectate mode | ⏳ |
++| **4 — Multiplayer** | Real-time PvP army battles; lobby/matchmaking; co-op scenarios | ⏳ |
++| **5 — Economy & Platform** | Creator marketplace; cosmetics/battle pass; creator revenue share | ⏳ |
++
++---
++
++## 4. ARCHITECTURE TARGET (end of Phase 1)
++
++```
++main.js  ──►  Bootstrapper  ──►  Engine (fixed timestep)
++                                   │
++                                   ▼
++                                 World (ECS)
++                                   │
++        ┌──────────┬───────────────┼───────────────┬───────────────┐
++        ▼          ▼               ▼               ▼               ▼
++   RenderSystem  AISystem    CombatSystem   SpatialSystem     CleanupSystem
++   (InstancedPool,           (damage,        (uniform grid,   (corpse GC)
++    dirty flags)              projectiles)    O(n) queries)
++        │
++        ▼
++   EventBus  ◄── decouples every system; no system imports another
++```
++
++**Key invariants going forward:**
++- ✅ Systems communicate ONLY via EventBus + World queries.
++- ✅ All gameplay is DATA (JSON), not code.
++- ✅ Deterministic RNG (`SeedRandom`) seeds every simulation → replays/sync work.
++- ✅ One render path. One AI path. One combat path. No duplication.
++
++---
++
++## 5. DIVISION OF LABOR (Arena × MiMo)
++
++| Role | Arena.ai Agent | MiMo Code Agent |
++|------|----------------|-----------------|
++| **Product & vision** | Owns the north star, roadmap, priorities | Validates, challenges, offers second opinion |
++| **Architecture** | Designs systems, defines contracts | Implements systems in code |
++| **Code** | Reviews every change; writes specs/contracts | Writes the bulk of implementation |
++| **Risk** | Calls out tech debt, anti-patterns | Suggests refactors, perf wins |
++| **Loop** | Plans → hands off → reviews → iterates | Implements → explains choices → refactors |
++
++**Cadence:** Arena plans a unit of work → MiMo implements → Arena reviews → ship. Repeat.
++
++---
++
++## 6. WHAT WE'RE BUILDING RIGHT NOW (Phase 1, Step 1)
++
++**Goal of this session:** Establish the bridge. `main.js` bootstraps the ECS `Engine`
++and `World`. Port `RenderSystem` first (lowest risk, highest visibility — we'll *see* it work).
++This proves the ECS is real and unlocks everything else.
+diff --git a/PHASE1_BRIDGE.md b/PHASE1_BRIDGE.md
+new file mode 100644
+index 0000000..e59bb6c
+--- /dev/null
++++ b/PHASE1_BRIDGE.md
+@@ -0,0 +1,84 @@
++# PHASE 1, STEP 1 — SPEC: The Bridge
++> Architect: Arena.ai Agent | Implementer: MiMo Code Agent
++> Goal: PROVE the ECS renders entities end-to-end, isolated from the monolith.
++
++## Context
++The ECS (World, Entity, RenderSystem, InstancedPool) is complete but has no spawn layer.
++Nothing creates entities. This spec adds the missing piece and proves the whole pipeline.
++
++## Deliverables
++
++### 1. `src/ecs/UnitFactory.js` (NEW)
++A factory that spawns a unit entity with ALL 6 components. Contract:
++```js
++import { Transform } from './components/Transform.js';
++import { Health } from './components/Health.js';
++import { Combat } from './components/Combat.js';
++import { Team } from './components/Team.js';
++import { UnitType } from './components/UnitType.js';
++import { AIState } from './components/AIState.js';
++import { UNIT_TYPES } from '../entities/UnitTypes.js';
++import { EventBus } from '../core/EventBus.js';
++
++export class UnitFactory {
++  constructor(world) { this.world = world; }
++
++  spawn(typeId, x, y, z, isRed, data = {}) {
++    // Pull base stats from UNIT_TYPES[typeId] (damage, hp, range, speed, attackSpeed)
++    // Create entity, add 6 components, mark dirty for RenderSystem
++    // Return the entity
++  }
++
++  spawnSquad(typeId, count, center, isRed, spacing = 2) {
++    // Spawn 'count' units in a grid around center, return array of entities
++  }
++
++  clearAll() {
++    // Destroy every entity with a UnitType component
++  }
++}
++```
++- Read `UNIT_TYPES` from `src/entities/UnitTypes.js` for stats (damage, hp, range, etc.)
++- Map each field to the right component (HP → Health, damage/range/attackSpeed → Combat, etc.)
++- After adding components, emit `EventBus.emit('render:markdirty', { id: e.id })`
++
++### 2. `src/systems/MovementSystem.js` (NEW)
++Proves the UPDATE phase works. Moves entities toward their target, marks dirty.
++```js
++export class MovementSystem {
++  constructor(world) { this.world = world; }
++  update(dt) {
++    // For each entity with transform + aistate:
++    //   if aistate.target (THREE.Vector3 or {x,z}) is set, move toward it at unitType.speed
++    //   clamp to terrain bounds |x|,|z| <= 85
++    //   emit 'render:markdirty' for moved entities
++  }
++}
++```
++- Add to Bootstrapper: `this._add(new MovementSystem(this.world), 'update', 15);` (between AI@10 and Combat@20)
++
++### 3. Proof harness: `test/ecs-bridge.test.js` (NEW)
++A Node-runnable script (no browser needed) that PROVES the spawn+query pipeline:
++```js
++// Import World, UnitFactory (use a stub UNIT_TYPES or the real one if importable in node)
++// Create World, UnitFactory
++// factory.spawn('swordsman', 0,0,0, true)
++// factory.spawnSquad('archer', 10, {x:5,z:0}, false)
++// Assert: world.entityCount === 11
++// Assert: world.query('transform','team').length === 11
++// Assert: world.queryFirst('combat') has damage matching swordsman
++// Print PASS/FAIL
++```
++- Must run with plain `node test/ecs-bridge.test.js` (ESM). Use `--input-type=module` if needed.
++
++## Acceptance Criteria
++- [ ] `UnitFactory.spawn` creates an entity with all 6 components
++- [ ] `UnitFactory.spawnSquad` creates N entities in a grid
++- [ ] `MovementSystem.update` moves entities toward targets
++- [ ] `node test/ecs-bridge.test.js` prints PASS
++- [ ] `vite build` still succeeds (no import errors)
++
++## What NOT to do
++- Do NOT modify main.js yet (the bridge into the live game is Step 2).
++- Do NOT modify existing ECS files except Bootstrapper (to register MovementSystem).
++- Do NOT add npm dependencies.
+diff --git a/PHASE1_STEP2.md b/PHASE1_STEP2.md
+new file mode 100644
+index 0000000..bedf2a9
+--- /dev/null
++++ b/PHASE1_STEP2.md
+@@ -0,0 +1,89 @@
++# PHASE 1, STEP 2 — SPEC: Prove the ECS Runs a Full Battle
++> Architect: Arena.ai Agent | Implementer: MiMo Code Agent
++> Goal: Headless battle simulation proving the ECS gameplay loop works end-to-end.
++
++## Why this step
++The ECS has a COMPLETE battle loop (AISystem → behavior trees → CombatSystem → CleanupSystem)
++that has NEVER been run. Before wiring it into the browser game, we prove it works headless.
++If two armies fight to a winner through the ECS, the engine is proven real.
++
++## Context (what already works)
++- `UnitFactory.spawn(typeId, x, y, z, isRed)` creates entities with all 6 components
++- `AISystem.update(dt)` runs behavior trees per entity (melee fully works; ranged emits
++  `projectile:spawn` which is currently unhandled)
++- `CombatSystem` listens for `combat:damage` events, applies HP, emits `combat:kill`
++- `CleanupSystem.lateUpdate(dt)` removes dead entities after a delay
++- `Engine` uses `requestAnimationFrame` (must be stubbed for Node)
++
++## Deliverable: `test/ecs-battle.test.js`
++
++A Node ESM script that runs a FULL MELEE BATTLE through the ECS and verifies the outcome.
++
++### Setup
++```js
++// Stub requestAnimationFrame + performance for Node (Engine needs them)
++globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
++globalThis.performance = globalThis.performance || { now: () => Date.now() };
++```
++Actually, DON'T use the Engine's RAF loop. Instead, manually drive the systems in a
++fixed loop — this is deterministic and faster:
++```js
++const world = new World();
++const factory = new UnitFactory(world);
++const ai = new AISystem(world);
++const combat = new CombatSystem(world);
++const cleanup = new CleanupSystem(world);
++const movement = new MovementSystem(world);
++```
++
++### Battle setup
++- Spawn 10 red swordsmen in a cluster around (-20, 0, 0)
++- Spawn 10 blue spearmen in a cluster around (20, 0, 0)
++- Use `factory.spawnSquad('swordsman', 10, {x:-20,z:0}, true, 2)`
++- Use `factory.spawnSquad('spearman', 10, {x:20,z:0}, false, 2)`
++
++### Simulation loop
++```js
++const dt = 1/60;
++let winner = null;
++let damageDealt = 0;
++EventBus.on('combat:damage:dealt', (e) => { damageDealt += e.damage; });
++EventBus.on('combat:kill', (e) => { /* track kills */ });
++
++for (let frame = 0; frame < 3600; frame++) {  // 60 seconds max
++  ai.update(dt);
++  movement.update(dt);
++  combat.update(dt);
++  cleanup.lateUpdate(dt);
++  
++  const redAlive = world.query('team').filter(e => e.get('team').isRed && e.get('health').alive).length;
++  const blueAlive = world.query('team').filter(e => e.get('team').isBlue && e.get('health').alive).length;
++  if (redAlive === 0 || blueAlive === 0) { winner = redAlive > 0 ? 'red' : 'blue'; break; }
++}
++```
++
++### Assertions (the proof)
++```
++- damageDealt > 0          // combat actually happened
++- at least 5 kills occurred // units died
++- winner is 'red' or 'blue' // a side won
++- world.entityCount eventually shrinks as corpses get cleaned up
++- battle resolved within 3600 frames (60s) — not an infinite stalemate
++```
++
++### Also test: ranged gap is documented
++- Spawn 2 archers vs 2 swordsmen, run 300 frames
++- Assert that archers' `projectile:spawn` events fired but NO `combat:damage` resulted
++  (proving the ranged gap exists — this becomes the spec for the ProjectileSystem)
++
++## Acceptance Criteria
++- [ ] `node test/ecs-battle.test.js` prints PASS
++- [ ] Melee battle resolves with a clear winner and verifiable damage
++- [ ] Ranged gap is documented (archers fire but deal no damage — known limitation)
++- [ ] No hangs / infinite loops
++- [ ] `vite build` still succeeds
++
++## What NOT to do
++- Do NOT modify main.js or any existing source files
++- Do NOT add the ProjectileSystem yet (that's Step 3)
++- Do NOT add npm dependencies
+diff --git a/PHASE1_STEP4.md b/PHASE1_STEP4.md
+new file mode 100644
+index 0000000..8095a23
+--- /dev/null
++++ b/PHASE1_STEP4.md
+@@ -0,0 +1,126 @@
++# PHASE 1, STEP 4 — SPEC: ProjectileSystem (Ranged Combat)
++> Architect: Arena.ai Agent | Implementer: MiMo Code Agent
++> Goal: Close the ranged combat gap. Arrows, bullets, and catapult rocks deal damage.
++
++## Context
++The `Attack` behavior tree task (src/ai/tasks/Attack.js) already emits this event when ranged
++units attack:
++```js
++EventBus.emit('projectile:spawn', {
++  attackerId,      // entity id of shooter
++  targetId,        // entity id of target
++  damage,          // computed damage (after modifiers)
++  projectileSpeed, // units/sec (archer: 40, musketeer: 60, catapult: 25)
++  projectileArc,   // 0 for straight (bullets), >0 for arcing (catapult: 15)
++  isAoe,           // true for catapult/giant
++  aoeRadius,       // splash radius if AOE
++  side             // 'red' or 'blue'
++});
++```
++Currently NOTHING handles this event → ranged damage is 0 (proven in battle test).
++
++## Deliverable: `src/systems/ProjectileSystem.js`
++
++A system that manages in-flight projectiles and resolves their impacts.
++
++### Contract
++```js
++export class ProjectileSystem {
++  constructor(world) {
++    this.world = world;
++    this.projectiles = [];  // array of active projectiles
++    this._unsubs = [
++      EventBus.on('projectile:spawn', e => this._spawn(e)),
++    ];
++  }
++
++  _spawn(e) {
++    // Get attacker position from world (attackerId → transform)
++    // Get target position from world (targetId → transform)
++    // If attacker or target doesn't exist, skip
++    // Create projectile object:
++    //   { x, y, z (start at attacker pos + height offset ~0.6),
++    //     targetId, attackerId, damage, speed, arc, isAoe, aoeRadius, side,
++    //     age: 0, maxAge: 5 (despawn after 5s safety) }
++    // Push to this.projectiles
++  }
++
++  update(dt) {
++    // For each active projectile:
++    //   1. Move toward target's CURRENT position (homing — target may have moved)
++    //      - For arc > 0: add a parabolic y offset (visual; for logic just track flat distance)
++    //      - For arc === 0: straight line
++    //   2. age += dt; if age > maxAge → remove (missed)
++    //   3. Check impact: flat distance to target < 1.5 units → HIT
++    //      - If target is dead/gone → remove projectile (whiffed)
++    //   4. On hit:
++    //      - If isAoe: find all enemy entities within aoeRadius of impact point,
++    //        emit combat:damage for each with full damage
++    //      - Else: emit combat:damage for targetId only
++    //      - Remove projectile
++    //   5. Emit EventBus.emit('projectile:impact', {x, y, z, side}) for particle FX hook
++  }
++
++  dispose() {
++    // Unsubscribe listeners, clear projectiles
++  }
++
++  get activeCount() { return this.projectiles.length; }
++}
++```
++
++### Key behaviors
++- **Homing**: projectile tracks target's current position (units move while arrow is in flight)
++- **AOE** (catapult, giant): on impact, damage ALL enemies within `aoeRadius` of impact point,
++  not just the original target
++- **Whiff**: if target dies before projectile lands, projectile flies to last known position and despawns
++- **Safety**: maxAge 5s prevents stuck projectiles
++- **Team awareness**: AOE only damages enemies (use Team.isEnemyOf)
++
++### Register in Bootstrapper
++```js
++this._add(new ProjectileSystem(this.world), 'update', 18);  // between AI(10) and Combat(20)
++```
++This order matters: AI fires projectiles, ProjectileSystem moves them and emits combat:damage,
++CombatSystem processes the damage — all in the same frame.
++
++## Deliverable: `test/ecs-ranged.test.js`
++
++Node ESM script proving ranged combat works. Extend the existing battle test pattern:
++
++### Test 1: Archers deal damage
++- Spawn 5 blue archers at (15, 0, 0), 5 red swordsmen at (-15, 0, 0)
++- Run simulation (AI + ProjectileSystem + CombatSystem + CleanupSystem, dt=1/60)
++- Assert: ranged damage > 0 (archers hit something)
++- Assert: projectile:spawn events fired
++- Assert: combat:damage events occurred from ranged (isMelee: false)
++- Assert: battle resolves (one side wins)
++
++### Test 2: Catapult AOE
++- Spawn 1 red catapult at (-20, 0, 0)
++- Spawn 5 blue swordsmen clustered tightly at (20, 0, 0) with spacing 1.5
++- Run 600 frames
++- Assert: damage dealt to multiple targets (AOE splash works)
++- Assert: at least 2 distinct targets took damage from a single... actually just assert
++  total kills or damage is significant given catapult does 60 damage
++
++### Test 3: Mixed battle
++- Red: 3 archers + 3 swordsmen + 1 catapult
++- Blue: 4 spearmen + 2 musketeers + 1 giant
++- Run to resolution
++- Assert: battle resolves with a winner
++- Assert: both melee and ranged damage occurred
++
++## Acceptance Criteria
++- [ ] `node test/ecs-ranged.test.js` prints PASS
++- [ ] Archers deal ranged damage (rangedDamage > 0)
++- [ ] Catapult AOE hits multiple targets
++- [ ] Mixed battles resolve
++- [ ] `vite build` succeeds
++- [ ] No infinite loops / no stuck projectiles
++
++## What NOT to do
++- Do NOT add Three.js meshes yet (visual projectiles come in the main.js wiring step)
++- Do NOT modify main.js
++- Do NOT modify existing systems or components
++- Do NOT modify the Attack task (it already emits the right events)
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..7ddc196
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,105 @@
++# ⚔️ WARZONE SANDBOX
++
++> The **"what-if engine for warfare"** — a browser-native platform where anyone
++> composes armies, stages them on procedural terrain, and watches emergent
++> tactical outcomes unfold at 60fps.
++
++[![Deploy](https://img.shields.io/badge/Deploy-Render-46E3B7)](render.yaml)
++[![Engine](https://img.shields.io/badge/Engine-ECS%20Architecture-blue)](src/ecs/)
++[![Tests](https://img.shields.io/badge/Tests-57%20assertions-brightgreen)](test/)
++
++## 🎮 Play
++
++```bash
++npm install
++npm run dev      # → http://localhost:5173
++npm run build    # production build → dist/
++```
++
++No backend required — it's a fully client-side PWA with offline support.
++
++## 🧠 Architecture
++
++Built on a **custom ECS (Entity-Component-System)** engine — not a monolithic game loop.
++
++```
++main.js → ECSUnitManager → World (ECS)
++                              │
++          ┌───────────────────┼───────────────────┐
++          ▼                   ▼                   ▼
++     AISystem          ProjectileSystem     CombatSystem
++  (behavior trees)    (arrows/bullets/AOE)  (HP, damage, kill)
++          │                   │                   │
++          └───────────┬───────┴───────────────────┘
++                      ▼
++                CleanupSystem → EventBus (decoupled)
++```
++
++### Core Systems
++| System | Responsibility |
++|--------|---------------|
++| **AISystem** | Runs per-unit behavior trees (FindTarget → Chase → Attack) |
++| **ProjectileSystem** | Tracks flying projectiles, resolves impacts, AOE splash |
++| **CombatSystem** | Event-driven damage application + kill detection |
++| **CleanupSystem** | Timed corpse removal after death |
++| **ECSUnitManager** | Bridge between ECS state and Three.js instanced rendering |
++
++### Key Design Decisions
++- **Custom ECS** (not bitECS) — full control for <1000 entities
++- **EventBus decoupling** — no system imports another
++- **Deterministic RNG** (`SeedRandom`) — enables replays + sync
++- **Dirty-flagged rendering** — GPU efficiency via InstancedMesh
++
++## ⚔️ Unit Roster (8 types)
++
++| Unit | HP | Damage | Range | Special |
++|------|-----|--------|-------|---------|
++| ⚔️ Swordsman | 100 | 15 | 2.5 | Shield block (25%) |
++| 🗡️ Spearman | 80 | 12 | 3.5 | Anti-cavalry (2x) |
++| 🏹 Archer | 60 | 10 | 30 | Volley (3 arrows) |
++| 🐴 Knight | 150 | 25 | 2.5 | Charge (+50%) |
++| 🐎 Horseman | 90 | 18 | 2.5 | Flank bonus (3x) |
++| 🔫 Musketeer | 70 | 20 | 25 | Slow reload |
++| 👹 Giant | 300 | 40 | 4 | AOE slam |
++| 🏗️ Catapult | 50 | 60 | 50 | Siege AOE |
++
++## 🧪 Tests
++
++```bash
++node test/ecs-bridge.test.js       # 20 assertions — entity spawning + queries
++node test/ecs-battle.test.js       # 10 assertions — full melee battle
++node test/ecs-ranged.test.js       # 14 assertions — ranged + AOE combat
++node test/ecs-integration.test.js  # 13 assertions — full game flow
++```
++
++**57 assertions, all passing.** The ECS engine is proven headless — no browser needed.
++
++## 🗺️ Roadmap
++
++| Phase | Status |
++|-------|--------|
++| **0 — Foundation** (ECS, Engine, EventBus, BT) | ✅ Complete |
++| **1 — Unify** (ECS replaces monolith) | ✅ Complete |
++| **2 — Scale & Content** (10K units, data-driven units, visual editor) | ⏳ Next |
++| **3 — Social** (shareable battles, replays, spectate) | ⏳ |
++| **4 — Multiplayer** (PvP, matchmaking, co-op) | ⏳ |
++| **5 — Economy** (creator marketplace, cosmetics, revenue share) | ⏳ |
++
++See [`NORTH_STAR.md`](NORTH_STAR.md) for the full vision.
++
++## 🛠️ Tech Stack
++
++- **Three.js** — 3D rendering (InstancedMesh, post-processing)
++- **Custom ECS** — Entity-Component-System game engine
++- **Vite** — Build tooling
++- **PWA** — Offline support, service worker, fullscreen
++
++## 👥 Team
++
++- **@Heisdawrld** — Creator
++- **@fiy-73** — Contributor
++- **Arena.ai Agent** × **MiMo Code Agent** — AI co-architects (Phase 1 ECS rebuild)
++
++## 📄 License
++
++MIT
+diff --git a/src/core/Bootstrapper.js b/src/core/Bootstrapper.js
+index 8592b41..74f0685 100644
+--- a/src/core/Bootstrapper.js
++++ b/src/core/Bootstrapper.js
+@@ -4,9 +4,11 @@ import { EventBus } from './EventBus.js';
+ import { SeedRandom } from '../utils/SeedRandom.js';
+ import { AISystem } from '../systems/AISystem.js';
+ import { CombatSystem } from '../systems/CombatSystem.js';
++import { ProjectileSystem } from '../systems/ProjectileSystem.js';
+ import { CleanupSystem } from '../systems/CleanupSystem.js';
+ import { RenderSystem } from '../systems/RenderSystem.js';
+ 
++
+ export class Bootstrapper {
+   constructor() { this.world = null; this.engine = null; this.rng = null; this.systems = []; }
+ 
+@@ -15,8 +17,9 @@ export class Bootstrapper {
+     this.world = new World();
+     this.engine = new Engine();
+ 
+-    this._add(new CombatSystem(this.world), 'update', 20);
+     this._add(new AISystem(this.world), 'update', 10);
++    this._add(new ProjectileSystem(this.world), 'update', 18);
++    this._add(new CombatSystem(this.world), 'update', 20);
+     this._add(new RenderSystem(this.world, scene), 'render', 100);
+     this._add(new CleanupSystem(this.world), 'lateUpdate', 0);
+ 
+diff --git a/src/ecs/ECSGameController.js b/src/ecs/ECSGameController.js
+new file mode 100644
+index 0000000..6d8fa9e
+--- /dev/null
++++ b/src/ecs/ECSGameController.js
+@@ -0,0 +1,86 @@
++/**
++ * ECSGameController — Drives ECS systems during battle.
++ *
++ * Replaces the monolith BehaviorTree + handleCombat with the ECS pipeline:
++ *   AISystem → ProjectileSystem → CombatSystem → CleanupSystem
++ *
++ * The ECS is the source of truth; ECSUnitManager.syncFromECS() copies
++ * results back to rendering proxies after each update.
++ */
++import { AISystem } from '../systems/AISystem.js';
++import { CombatSystem } from '../systems/CombatSystem.js';
++import { ProjectileSystem } from '../systems/ProjectileSystem.js';
++import { CleanupSystem } from '../systems/CleanupSystem.js';
++import { EventBus } from '../core/EventBus.js';
++
++export class ECSGameController {
++  constructor(unitManager, particles = null) {
++    this.unitManager = unitManager;
++    this.world = unitManager.world;
++    this.particles = particles;
++
++    // Create ECS systems (do NOT use Engine RAF — main.js drives the loop)
++    this.ai = new AISystem(this.world);
++    this.projectiles = new ProjectileSystem(this.world);
++    this.combat = new CombatSystem(this.world);
++    this.cleanup = new CleanupSystem(this.world);
++
++    // Hook ECS events to visual particle system (if provided)
++    this._unsubs = [];
++    if (particles) {
++      this._unsubs.push(
++        EventBus.on('combat:kill', (e) => {
++          const entity = this.world.getEntity(e.targetId);
++          if (!entity) return;
++          const tx = entity.get('transform');
++          if (tx && particles.dust) {
++            particles.dust({ x: tx.x, y: tx.y + 0.5, z: tx.z });
++          }
++        }),
++        EventBus.on('combat:damage:dealt', (e) => {
++          const entity = this.world.getEntity(e.targetId);
++          if (!entity) return;
++          const tx = entity.get('transform');
++          if (tx && particles.blood && e.damage > 0) {
++            particles.blood({ x: tx.x, y: tx.y + 0.8, z: tx.z });
++          }
++        }),
++        EventBus.on('projectile:impact', (e) => {
++          if (particles.explosion) {
++            particles.explosion({ x: e.x, y: e.y, z: e.z });
++          }
++        }),
++      );
++    }
++  }
++
++  /** Clear in-flight projectiles and death timers between battles. */
++  reset() {
++    this.projectiles.projectiles.length = 0;
++    this.cleanup.clear();
++  }
++
++  setParticles(particles) {
++    this.particles = particles;
++  }
++
++  /**
++   * Run one ECS update tick. Call from main.js animate() loop.
++   * After this, call unitManager.syncFromECS() to update rendering.
++   */
++  update(dt) {
++    this.ai.update(dt);
++    this.projectiles.update(dt);
++    this.combat.update(dt);
++    this.cleanup.lateUpdate(dt);
++    this.unitManager.syncFromECS();
++  }
++
++  dispose() {
++    for (const fn of this._unsubs) fn();
++    this.ai?.dispose?.();
++    this.projectiles?.dispose?.();
++    this.combat?.dispose?.();
++    this.cleanup?.dispose?.();
++  }
++}
+diff --git a/src/ecs/ECSUnitManager.js b/src/ecs/ECSUnitManager.js
+new file mode 100644
+index 0000000..2ee4b46
+--- /dev/null
++++ b/src/ecs/ECSUnitManager.js
+@@ -0,0 +1,276 @@
++/**
++ * ECSUnitManager — Drop-in replacement for UnitManager that runs on ECS.
++ *
++ * Strategy: ECS entities are the SOURCE OF TRUTH for game logic (AI, combat,
++ * health). Legacy unit objects are kept as thin rendering/UI proxies that
++ * get synced from ECS state every frame via syncFromECS().
++ *
++ * This lets us swap the game LOGIC to ECS while keeping the existing
++ * rendering (InstancedMesh), UI queries, Formation, and Minimap unchanged.
++ */
++import * as THREE from 'three';
++import { UNIT_TYPES } from '../entities/UnitTypes.js';
++import { World } from './World.js';
++import { UnitFactory } from './UnitFactory.js';
++import { EventBus } from '../core/EventBus.js';
++
++const MAX_UNITS = 500;
++const dummy = new THREE.Object3D();
++const color = new THREE.Color();
++
++export class ECSUnitManager {
++  constructor(scene, terrain) {
++    this.scene = scene;
++    this.terrain = terrain;
++
++    // ECS — source of truth for game logic
++    this.world = new World();
++    this.factory = new UnitFactory(this.world);
++
++    // Legacy units — rendering/UI proxies (synced from ECS each frame)
++    this.units = [];
++    this.meshes = {};
++
++    this.geometryPool = {
++      body: new THREE.CylinderGeometry(0.3, 0.4, 1.2, 6),
++      head: new THREE.SphereGeometry(0.25, 6, 4),
++      weapon: new THREE.BoxGeometry(0.1, 0.8, 0.1),
++      base: new THREE.CylinderGeometry(0.5, 0.5, 0.15, 8),
++    };
++
++    this._createInstancedMeshes();
++  }
++
++  _createInstancedMeshes() {
++    for (const [typeId, typeData] of Object.entries(UNIT_TYPES)) {
++      const group = new THREE.Group();
++
++      const bodyMat = new THREE.MeshStandardMaterial({ color: typeData.color, roughness: 0.7, metalness: 0.1 });
++      const bodyMesh = new THREE.InstancedMesh(this.geometryPool.body, bodyMat, MAX_UNITS);
++      bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
++      bodyMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
++      group.add(bodyMesh);
++
++      const headMat = new THREE.MeshStandardMaterial({ color: 0xddccaa, roughness: 0.6, metalness: 0.0 });
++      const headMesh = new THREE.InstancedMesh(this.geometryPool.head, headMat, MAX_UNITS);
++      headMesh.castShadow = true;
++      headMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
++      group.add(headMesh);
++
++      const baseMat = new THREE.MeshStandardMaterial({ color: typeData.color, roughness: 0.5, metalness: 0.3 });
++      const baseMesh = new THREE.InstancedMesh(this.geometryPool.base, baseMat, MAX_UNITS);
++      baseMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
++      group.add(baseMesh);
++
++      this.scene.add(group);
++      this.meshes[typeId] = { group, body: bodyMesh, head: headMesh, base: baseMesh, count: 0 };
++    }
++  }
++
++  /**
++   * Create an ECS entity AND a legacy unit proxy.
++   * ECS entity holds the real game state; unit proxy is for rendering/UI.
++   */
++  addUnit(typeId, position, side) {
++    const typeData = UNIT_TYPES[typeId];
++    if (!typeData) return null;
++
++    // Create ECS entity (source of truth)
++    const entity = this.factory.spawn(typeId, position.x, position.y, position.z, side === 'red');
++
++    // Create legacy unit proxy (for rendering + UI compatibility)
++    const unit = {
++      id: entity.id,
++      entityId: entity.id,
++      type: typeId,
++      typeData,
++      side,
++      position: new THREE.Vector3(position.x, position.y, position.z),
++      velocity: new THREE.Vector3(),
++      hp: typeData.hp,
++      maxHp: typeData.hp,
++      alive: true,
++      state: 'idle',
++      target: null,
++      attackCooldown: 0,
++      stateTimer: 0,
++      meshIndex: this.meshes[typeId].count,
++      rotation: side === 'red' ? 0 : Math.PI,
++    };
++
++    this.meshes[typeId].count++;
++    this.units.push(unit);
++    return unit;
++  }
++
++  /**
++   * Push legacy unit positions/rotations INTO ECS entities.
++   * Called after Formation assignment, before battle starts.
++   */
++  syncToECS() {
++    for (const unit of this.units) {
++      if (!unit.alive) continue;
++      const entity = this.world.getEntity(unit.entityId);
++      if (!entity) continue;
++      const tx = entity.get('transform');
++      if (tx) {
++        tx.x = unit.position.x;
++        tx.y = unit.position.y;
++        tx.z = unit.position.z;
++        tx.rotation = unit.rotation;
++      }
++    }
++  }
++
++  /**
++   * Pull ECS entity state INTO legacy units for rendering.
++   * Called every frame after ECS systems update.
++   */
++  syncFromECS() {
++    for (const unit of this.units) {
++      if (!unit.alive) continue;
++      const entity = this.world.getEntity(unit.entityId);
++      if (!entity || !entity.alive) { unit.alive = false; unit.hp = 0; continue; }
++
++      const tx = entity.get('transform');
++      const hp = entity.get('health');
++      const ai = entity.get('aiState');
++
++      if (tx) {
++        unit.position.set(tx.x, tx.y, tx.z);
++        unit.rotation = tx.rotation;
++      }
++      if (hp) {
++        unit.hp = hp.hp;
++        unit.alive = hp.alive;
++      }
++      if (ai && ai.blackboard) {
++        unit.target = ai.blackboard.target || null;
++      }
++    }
++  }
++
++  removeUnit(unit) {
++    if (!unit.alive) return;
++    unit.alive = false;
++    unit.hp = 0;
++    this.world.destroyEntity(unit.entityId);
++    this.world.flushDestroyed();
++  }
++
++  clearAll() {
++    this.factory.clearAll();
++    this.units = [];
++    for (const key of Object.keys(this.meshes)) {
++      this.meshes[key].count = 0;
++    }
++  }
++
++  getUnitsBySide(side) {
++    return this.units.filter(u => u.alive && u.side === side);
++  }
++
++  getAliveCount(side) {
++    return this.units.filter(u => u.alive && u.side === side).length;
++  }
++
++  getArmyHP(side) {
++    const alive = this.units.filter(u => u.alive && u.side === side);
++    if (alive.length === 0) return 0;
++    return alive.reduce((sum, u) => sum + (u.hp / u.maxHp), 0) / alive.length;
++  }
++
++  findNearestEnemy(unit) {
++    let nearest = null;
++    let nearestDist = Infinity;
++    for (const other of this.units) {
++      if (!other.alive || other.side === unit.side) continue;
++      const dist = unit.position.distanceTo(other.position);
++      if (dist < nearestDist) { nearestDist = dist; nearest = other; }
++    }
++    return nearest;
++  }
++
++  findNearestEnemyInRange(unit) {
++    const enemy = this.findNearestEnemy(unit);
++    if (!enemy) return null;
++    const dist = unit.position.distanceTo(enemy.position);
++    return dist <= unit.typeData.range + 2 ? enemy : null;
++  }
++
++  update(delta, battleTime) {
++    // Cooldowns are now managed by ECS Combat component (tickCooldown in Attack task).
++    // Keep this for UI state timer compatibility.
++    for (const unit of this.units) {
++      if (!unit.alive) continue;
++      unit.stateTimer += delta;
++    }
++  }
++
++  updateMeshes() {
++    for (const [typeId, meshData] of Object.entries(this.meshes)) {
++      const typeData = UNIT_TYPES[typeId];
++      let idx = 0;
++
++      for (const unit of this.units) {
++        if (!unit.alive || unit.type !== typeId) continue;
++
++        const scale = typeData.size;
++        const h = this.terrain ? this.terrain.getHeightAt(unit.position.x, unit.position.z) : 0;
++        const displayY = unit.position.y + h;
++
++        dummy.position.set(unit.position.x, displayY + 0.6 * scale, unit.position.z);
++        dummy.scale.set(scale, scale, scale);
++        dummy.rotation.set(0, unit.rotation, 0);
++        dummy.updateMatrix();
++        meshData.body.setMatrixAt(idx, dummy.matrix);
++
++        dummy.position.set(unit.position.x, displayY + 1.3 * scale, unit.position.z);
++        dummy.scale.set(scale, scale, scale);
++        dummy.updateMatrix();
++        meshData.head.setMatrixAt(idx, dummy.matrix);
++
++        dummy.position.set(unit.position.x, displayY + 0.05, unit.position.z);
++        dummy.scale.set(scale, 1, scale);
++        dummy.updateMatrix();
++        meshData.base.setMatrixAt(idx, dummy.matrix);
++
++        color.setHex(unit.side === 'red' ? 0xff3333 : 0x3366ff);
++        meshData.body.setColorAt(idx, color);
++        idx++;
++      }
++
++      meshData.body.count = idx;
++      meshData.head.count = idx;
++      meshData.base.count = idx;
++      meshData.body.instanceMatrix.needsUpdate = true;
++      meshData.head.instanceMatrix.needsUpdate = true;
++      meshData.base.instanceMatrix.needsUpdate = true;
++      if (meshData.body.instanceColor) meshData.body.instanceColor.needsUpdate = true;
++    }
++  }
++
++  getAliveUnits() {
++    return this.units.filter(u => u.alive);
++  }
++
++  getStats() {
++    return {
++      redAlive: this.getAliveCount('red'),
++      blueAlive: this.getAliveCount('blue'),
++      redTotal: this.units.filter(u => u.side === 'red').length,
++      blueTotal: this.units.filter(u => u.side === 'blue').length,
++      redHp: this.getArmyHP('red'),
++      blueHp: this.getArmyHP('blue'),
++    };
++  }
++
++  getArmyComposition(side) {
++    const comp = {};
++    for (const u of this.units.filter(u => u.alive && u.side === side)) {
++      const name = u.typeData.name;
++      comp[name] = (comp[name] || 0) + 1;
++    }
++    return comp;
++  }
++}
+diff --git a/src/ecs/UnitFactory.js b/src/ecs/UnitFactory.js
+new file mode 100644
+index 0000000..a589580
+--- /dev/null
++++ b/src/ecs/UnitFactory.js
+@@ -0,0 +1,65 @@
++import { Transform } from './components/Transform.js';
++import { Health } from './components/Health.js';
++import { Combat } from './components/Combat.js';
++import { Team } from './components/Team.js';
++import { UnitType } from './components/UnitType.js';
++import { AIState } from './components/AIState.js';
++import { UNIT_TYPES } from '../entities/UnitTypes.js';
++import { EventBus } from '../core/EventBus.js';
++
++export class UnitFactory {
++  constructor(world) { this.world = world; }
++
++  spawn(typeId, x, y, z, isRed, data = {}) {
++    const stats = UNIT_TYPES[typeId];
++    if (!stats) throw new Error(`Unknown unit type: ${typeId}`);
++
++    const e = this.world.createEntity();
++    e.add(new Transform({ x, y, z }));
++    e.add(new Health({ hp: stats.hp, maxHp: stats.hp }));
++    e.add(new Combat({
++      damage: stats.damage,
++      range: stats.range,
++      attackSpeed: stats.attackSpeed,
++      isRanged: stats.isRanged ?? false,
++      projectileSpeed: stats.projectileSpeed ?? 30,
++      projectileArc: stats.projectileArc ?? 0,
++      special: stats.special ?? null,
++      shieldChance: stats.shieldChance ?? 0,
++      bonusVsCavalry: stats.bonusVsCavalry ?? 1,
++      chargeMultiplier: stats.chargeMultiplier ?? 1.5,
++      flankBonus: stats.flankBonus ?? 2,
++      volleyCount: stats.volleyCount ?? 1,
++      aoeRadius: stats.aoeRadius ?? 0,
++    }));
++    e.add(new Team({ side: isRed ? 'red' : 'blue' }));
++    e.add(new UnitType({ id: typeId, name: stats.name, icon: stats.icon, size: stats.size, color: stats.color, speed: stats.speed }));
++    e.add(new AIState(data.aiState ?? {}));
++
++    EventBus.emit('render:markdirty', { id: e.id });
++    return e;
++  }
++
++  spawnSquad(typeId, count, center, isRed, spacing = 2) {
++    const side = Math.ceil(Math.sqrt(count));
++    const entities = [];
++    let i = 0;
++    for (let row = 0; row < side && i < count; row++) {
++      for (let col = 0; col < side && i < count; col++) {
++        const ox = (col - (side - 1) / 2) * spacing;
++        const oz = (row - (side - 1) / 2) * spacing;
++        entities.push(this.spawn(typeId, center.x + ox, 0, center.z + oz, isRed));
++        i++;
++      }
++    }
++    return entities;
++  }
++
++  clearAll() {
++    const entities = this.world.query('unitType');
++    for (const e of entities) {
++      this.world.destroyEntity(e.id);
++    }
++    this.world.flushDestroyed();
++  }
++}
+diff --git a/src/ecs/VisualProjectiles.js b/src/ecs/VisualProjectiles.js
+new file mode 100644
+index 0000000..1fcc780
+--- /dev/null
++++ b/src/ecs/VisualProjectiles.js
+@@ -0,0 +1,137 @@
++/**
++ * VisualProjectiles — Renders flying projectiles (arrows, bullets, rocks).
++ *
++ * Hooks ECS `projectile:spawn` events to create visual meshes that fly toward
++ * their target. ECS ProjectileSystem handles the LOGIC (damage); this class
++ * only handles the VISUALS. On impact, meshes are removed.
++ *
++ * This replaces the monolith's entities/Projectile.js visual layer.
++ */
++import * as THREE from 'three';
++import { EventBus } from '../core/EventBus.js';
++
++export class VisualProjectiles {
++  constructor(scene, world) {
++    this.scene = scene;
++    this.world = world;
++    this.active = [];  // { mesh, targetId, age, maxAge, arc, startY }
++
++    // Shared geometries
++    this._arrowGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.8, 4);
++    this._bulletGeo = new THREE.SphereGeometry(0.1, 4, 3);
++    this._rockGeo = new THREE.DodecahedronGeometry(0.3, 0);
++
++    // Shared materials
++    this._arrowMat = new THREE.MeshBasicMaterial({ color: 0xddaa66 });
++    this._bulletMat = new THREE.MeshBasicMaterial({ color: 0xffee44 });
++    this._rockMat = new THREE.MeshStandardMaterial({ color: 0x886644, roughness: 0.9 });
++
++    this._unsubSpawn = EventBus.on('projectile:spawn', e => this._onSpawn(e));
++    this._unsubImpact = EventBus.on('projectile:impact', e => this._onImpact(e));
++  }
++
++  _onSpawn(e) {
++    const attacker = this.world.getEntity(e.attackerId);
++    if (!attacker) return;
++    const at = attacker.get('transform');
++    if (!at) return;
++
++    // Choose mesh type based on projectile speed
++    let geo, mat, scale;
++    if (e.projectileArc > 0) {
++      // Catapult rock
++      geo = this._rockGeo; mat = this._rockMat; scale = 1.2;
++    } else if (e.projectileSpeed >= 50) {
++      // Musketeer bullet
++      geo = this._bulletGeo; mat = this._bulletMat; scale = 0.8;
++    } else {
++      // Archer arrow
++      geo = this._arrowGeo; mat = this._arrowMat; scale = 1.0;
++    }
++
++    const mesh = new THREE.Mesh(geo, mat);
++    mesh.position.set(at.x, 0.8, at.z);
++    mesh.scale.setScalar(scale);
++    this.scene.add(mesh);
++
++    this.active.push({
++      mesh,
++      targetId: e.targetId,
++      attackerId: e.attackerId,
++      age: 0,
++      maxAge: 5,
++      arc: e.projectileArc || 0,
++      startX: at.x,
++      startZ: at.z,
++      baseY: 0.8,
++    });
++  }
++
++  _onImpact(e) {
++    // Remove projectiles near impact point (oldest matching target)
++    for (let i = this.active.length - 1; i >= 0; i--) {
++      const p = this.active[i];
++      const dx = p.mesh.position.x - e.x;
++      const dz = p.mesh.position.z - e.z;
++      if (Math.sqrt(dx * dx + dz * dz) < 3) {
++        this.scene.remove(p.mesh);
++        this.active.splice(i, 1);
++        return;  // remove one per impact
++      }
++    }
++  }
++
++  update(dt) {
++    for (let i = this.active.length - 1; i >= 0; i--) {
++      const p = this.active[i];
++      p.age += dt;
++
++      // Despawn after max age
++      if (p.age > p.maxAge) {
++        this.scene.remove(p.mesh);
++        this.active.splice(i, 1);
++        continue;
++      }
++
++      // Get target current position
++      const target = this.world.getEntity(p.targetId);
++      if (!target || !target.alive) {
++        // Target gone — let it fly a bit more then remove
++        if (p.age > 1) {
++          this.scene.remove(p.mesh);
++          this.active.splice(i, 1);
++        }
++        continue;
++      }
++
++      const tt = target.get('transform');
++      if (!tt) continue;
++
++      // Lerp position toward target
++      p.mesh.position.x += (tt.x - p.mesh.position.x) * Math.min(1, dt * 15);
++      p.mesh.position.z += (tt.z - p.mesh.position.z) * Math.min(1, dt * 15);
++
++      // Arc trajectory for catapults
++      if (p.arc > 0) {
++        const progress = p.age / Math.max(0.5, p.age + 0.5);
++        p.mesh.position.y = p.baseY + Math.sin(progress * Math.PI) * p.arc;
++      } else {
++        p.mesh.position.y += (0.8 - p.mesh.position.y) * Math.min(1, dt * 10);
++      }
++
++      // Rotate arrow to face direction of travel
++      p.mesh.lookAt(tt.x, p.mesh.position.y, tt.z);
++    }
++  }
++
++  clear() {
++    for (const p of this.active) this.scene.remove(p.mesh);
++    this.active = [];
++  }
++
++  dispose() {
++    this.clear();
++    this._unsubSpawn();
++    this._unsubImpact();
++  }
++}
+diff --git a/src/main.js b/src/main.js
+index 35767db..3e86f3e 100644
+--- a/src/main.js
++++ b/src/main.js
+@@ -4,10 +4,10 @@ import { GameCamera } from './engine/camera.js';
+ import { Terrain } from './engine/terrain.js';
+ import { createLighting } from './engine/lighting.js';
+ import { PostProcessing } from './engine/postprocessing.js';
+-import { UnitManager } from './entities/UnitManager.js';
+-import { ProjectileSystem } from './entities/Projectile.js';
++import { ECSUnitManager } from './ecs/ECSUnitManager.js';
++import { ECSGameController } from './ecs/ECSGameController.js';
++import { VisualProjectiles } from './ecs/VisualProjectiles.js';
+ import { ParticleSystem } from './entities/ParticleSystem.js';
+-import { BehaviorTree } from './ai/BehaviorTree.js';
+ import { Formation } from './ai/Formation.js';
+ import { UNIT_TYPES, FORMATION_TYPES } from './entities/UnitTypes.js';
+ import { GameUI } from './ui/GameUI.js';
+@@ -47,12 +47,10 @@ class Game {
+     this.terrain = new Terrain(this.scene);
+     this.ui.setLoaderProgress(60);
+ 
+-    this.unitManager = new UnitManager(this.scene, this.terrain);
+-    this.projectiles = new ProjectileSystem(this.scene, this.terrain);
+-    this.projectiles.setUnitManager(this.unitManager);
++    this.unitManager = new ECSUnitManager(this.scene, this.terrain);
+     this.particles = new ParticleSystem(this.scene);
+-    this.behavior = new BehaviorTree(this.unitManager, this.terrain);
+-    this.behavior.setParticles(this.particles);
++    this.ecsGame = new ECSGameController(this.unitManager, this.particles);
++    this.visualProjectiles = new VisualProjectiles(this.scene, this.unitManager.world);
+     this.formation = new Formation();
+     this.ui.setLoaderProgress(75);
+ 
+@@ -314,6 +312,8 @@ class Game {
+ 
+   startArmyBuilder() {
+     this.unitManager.clearAll();
++    this.visualProjectiles.clear();
++    this.ecsGame.reset();
+     this.activeSide = 'red';
+     this.ui.setActiveSide('red');
+     this.ui.updateUnitCount(0, 250);
+@@ -344,6 +344,9 @@ class Game {
+     this.assignFormations('red', this.unitManager.getUnitsBySide('red'));
+     this.assignFormations('blue', this.unitManager.getUnitsBySide('blue'));
+ 
++    // Sync formation positions INTO ECS entities before battle starts
++    this.unitManager.syncToECS();
++
+     this.battleTime = 0;
+     this.ui.hideHint();
+     this.audio.playSfx('fight');
+@@ -389,11 +392,11 @@ class Game {
+       const battleDelta = delta * this.battleSpeed;
+       this.battleTime += battleDelta;
+ 
+-      this.behavior.update(battleDelta);
++      // ECS drives ALL game logic (AI, combat, projectiles, cleanup)
++      this.ecsGame.update(battleDelta);
+       this.unitManager.update(battleDelta, this.battleTime);
+-      this.projectiles.update(battleDelta);
+       this.particles.update(battleDelta);
+-      this.handleCombat(battleDelta);
++      this.visualProjectiles.update(battleDelta);
+ 
+       const stats = this.unitManager.getStats();
+       this.ui.updateBattleHUD(stats);
+@@ -418,23 +421,6 @@ class Game {
+     }
+   }
+ 
+-  handleCombat(delta) {
+-    const units = this.unitManager.getAliveUnits();
+-    for (const unit of units) {
+-      if (unit.attackCooldown > 0 || !unit.alive) continue;
+-      if (!unit.typeData.isRanged) continue;
+-
+-      const enemy = this.unitManager.findNearestEnemyInRange(unit);
+-      if (!enemy) continue;
+-
+-      const dist = unit.position.distanceTo(enemy.position);
+-      if (dist <= unit.typeData.range) {
+-        this.projectiles.spawn(unit, enemy, unit.typeData.damage);
+-        unit.attackCooldown = 1 / unit.typeData.attackSpeed;
+-      }
+-    }
+-  }
+-
+   delay(ms) {
+     return new Promise(resolve => setTimeout(resolve, ms));
+   }
+diff --git a/src/systems/MovementSystem.js b/src/systems/MovementSystem.js
+new file mode 100644
+index 0000000..7b633c5
+--- /dev/null
++++ b/src/systems/MovementSystem.js
+@@ -0,0 +1,37 @@
++import { EventBus } from '../core/EventBus.js';
++
++export class MovementSystem {
++  constructor(world) { this.world = world; }
++
++  update(dt) {
++    const entities = this.world.query('transform', 'aiState', 'unitType');
++    for (const e of entities) {
++      const ai = e.get('aiState');
++      const target = ai.blackboard.target;
++      if (!target) continue;
++
++      const tx = e.get('transform');
++      const speed = e.get('unitType').speed;
++      const dx = target.x - tx.x;
++      const dz = target.z - tx.z;
++      const dist = Math.sqrt(dx * dx + dz * dz);
++      if (dist < 0.1) continue;
++
++      const move = speed * dt;
++      if (move >= dist) {
++        tx.x = target.x;
++        tx.z = target.z;
++      } else {
++        tx.x += (dx / dist) * move;
++        tx.z += (dz / dist) * move;
++      }
++
++      if (tx.x > 85) tx.x = 85;
++      if (tx.x < -85) tx.x = -85;
++      if (tx.z > 85) tx.z = 85;
++      if (tx.z < -85) tx.z = -85;
++
++      EventBus.emit('render:markdirty', { id: e.id });
++    }
++  }
++}
+diff --git a/src/systems/ProjectileSystem.js b/src/systems/ProjectileSystem.js
+new file mode 100644
+index 0000000..8b3f0aa
+--- /dev/null
++++ b/src/systems/ProjectileSystem.js
+@@ -0,0 +1,104 @@
++import { EventBus } from '../core/EventBus.js';
++
++export class ProjectileSystem {
++  constructor(world) {
++    this.world = world;
++    this.projectiles = [];
++    this._unsubs = [
++      EventBus.on('projectile:spawn', e => this._spawn(e)),
++    ];
++  }
++
++  _spawn(e) {
++    const attacker = this.world.getEntity(e.attackerId);
++    const target = this.world.getEntity(e.targetId);
++    if (!attacker || !target) return;
++    const at = attacker.get('transform');
++    const tt = target.get('transform');
++    if (!at || !tt) return;
++
++    this.projectiles.push({
++      x: at.x, y: 0.6, z: at.z,
++      targetId: e.targetId,
++      attackerId: e.attackerId,
++      damage: e.damage,
++      speed: e.projectileSpeed,
++      arc: e.projectileArc,
++      isAoe: e.isAoe,
++      aoeRadius: e.aoeRadius,
++      side: e.side,
++      age: 0,
++      maxAge: 5,
++    });
++  }
++
++  update(dt) {
++    for (let i = this.projectiles.length - 1; i >= 0; i--) {
++      const p = this.projectiles[i];
++
++      p.age += dt;
++      if (p.age > p.maxAge) {
++        this.projectiles.splice(i, 1);
++        continue;
++      }
++
++      const target = this.world.getEntity(p.targetId);
++      let tx, tz;
++      if (target && target.alive) {
++        const tt = target.get('transform');
++        if (!tt) {
++          this.projectiles.splice(i, 1);
++          continue;
++        }
++        tx = tt.x;
++        tz = tt.z;
++      } else {
++        this.projectiles.splice(i, 1);
++        continue;
++      }
++
++      const dx = tx - p.x;
++      const dz = tz - p.z;
++      const flatDist = Math.sqrt(dx * dx + dz * dz);
++
++      if (flatDist < 1.5) {
++        this._impact(p, tx, tz);
++        this.projectiles.splice(i, 1);
++        continue;
++      }
++
++      const step = p.speed * dt;
++      p.x += (dx / flatDist) * step;
++      p.z += (dz / flatDist) * step;
++    }
++  }
++
++  _impact(p, ix, iz) {
++    EventBus.emit('projectile:impact', { x: ix, y: p.arc > 0 ? p.arc : 0.6, z: iz, side: p.side });
++
++    if (p.isAoe) {
++      const entities = this.world.query('health', 'transform', 'team');
++      for (const e of entities) {
++        const t = e.get('team');
++        if (t.side === p.side) continue;
++        const tp = e.get('transform');
++        const ex = tp.x - ix, ez = tp.z - iz;
++        if (Math.sqrt(ex * ex + ez * ez) <= p.aoeRadius) {
++          EventBus.emit('combat:damage', { attackerId: p.attackerId, targetId: e.id, damage: p.damage, isMelee: false });
++        }
++      }
++    } else {
++      const target = this.world.getEntity(p.targetId);
++      if (target && target.alive) {
++        EventBus.emit('combat:damage', { attackerId: p.attackerId, targetId: p.targetId, damage: p.damage, isMelee: false });
++      }
++    }
++  }
++
++  dispose() {
++    for (const fn of this._unsubs) fn();
++    this.projectiles.length = 0;
++  }
++
++  get activeCount() { return this.projectiles.length; }
++}
+diff --git a/test/ecs-battle.test.js b/test/ecs-battle.test.js
+new file mode 100644
+index 0000000..9199aa5
+--- /dev/null
++++ b/test/ecs-battle.test.js
+@@ -0,0 +1,150 @@
++/**
++ * PHASE 1, STEP 2 — Full ECS Battle Simulation (headless, Node)
++ * 
++ * Proves the ECS gameplay loop works end-to-end:
++ *   AISystem (behavior trees) → CombatSystem (damage) → CleanupSystem (deaths)
++ * 
++ * NOTE: MovementSystem is EXCLUDED — the behavior tree's Chase/Attack tasks
++ * handle all movement. MovementSystem as written reads bb.target as a position
++ * {x,z}, but bb.target is an Entity reference (set by FindTarget). This is a
++ * known redundancy to address in a future refactor.
++ */
++
++import { World } from '../src/ecs/World.js';
++import { UnitFactory } from '../src/ecs/UnitFactory.js';
++import { AISystem } from '../src/systems/AISystem.js';
++import { CombatSystem } from '../src/systems/CombatSystem.js';
++import { CleanupSystem } from '../src/systems/CleanupSystem.js';
++import { EventBus } from '../src/core/EventBus.js';
++
++let pass = 0, fail = 0;
++function assert(cond, msg) {
++  if (cond) pass++; else { fail++; console.error(`  FAIL: ${msg}`); }
++}
++
++// ─── Track combat events ──────────────────────────────────────────
++let totalDamage = 0;
++let killCount = 0;
++let damageEvents = 0;
++let projectileSpawns = 0;
++let rangedDamage = 0;
++let meleeDamage = 0;
++
++EventBus.on('combat:damage:dealt', (e) => {
++  totalDamage += e.damage;
++  damageEvents++;
++  if (e.isMelee) meleeDamage += e.damage;
++  else rangedDamage += e.damage;
++});
++EventBus.on('combat:kill', () => { killCount++; });
++EventBus.on('projectile:spawn', () => { projectileSpawns++; });
++
++// ─── Helper: count alive per team ─────────────────────────────────
++function countAlive(world, side) {
++  let n = 0;
++  for (const e of world.query('team', 'health')) {
++    const t = e.get('team'), h = e.get('health');
++    if (t.side === side && h.alive) n++;
++  }
++  return n;
++}
++
++// ═══════════════════════════════════════════════════════════════════
++// TEST 1: Full melee battle — swordsmen vs spearmen
++// ═══════════════════════════════════════════════════════════════════
++console.log('\n━━━ TEST 1: Full Melee Battle (10 swordsmen vs 10 spearmen) ━━━');
++
++const world = new World();
++const factory = new UnitFactory(world);
++const ai = new AISystem(world);
++const combat = new CombatSystem(world);
++const cleanup = new CleanupSystem(world);
++
++factory.spawnSquad('swordsman', 10, { x: -20, z: 0 }, true, 2);
++factory.spawnSquad('spearman', 10, { x: 20, z: 0 }, false, 2);
++
++assert(world.entityCount === 20, `20 entities spawned, got ${world.entityCount}`);
++assert(countAlive(world, 'red') === 10, `10 red alive at start`);
++assert(countAlive(world, 'blue') === 10, `10 blue alive at start`);
++
++const dt = 1 / 60;
++let winner = null;
++let resolutionFrame = 0;
++
++for (let frame = 0; frame < 3600; frame++) {  // max 60 seconds
++  ai.update(dt);
++  combat.update(dt);
++  cleanup.lateUpdate(dt);
++
++  const redAlive = countAlive(world, 'red');
++  const blueAlive = countAlive(world, 'blue');
++
++  if (redAlive === 0 || blueAlive === 0) {
++    winner = redAlive > 0 ? 'red' : (blueAlive > 0 ? 'blue' : 'draw');
++    resolutionFrame = frame;
++    break;
++  }
++}
++
++console.log(`  Winner: ${winner}`);
++console.log(`  Resolved at frame ${resolutionFrame} (${(resolutionFrame * dt).toFixed(1)}s)`);
++console.log(`  Total damage dealt: ${totalDamage}`);
++console.log(`  Total kills: ${killCount}`);
++console.log(`  Damage events: ${damageEvents}`);
++console.log(`  Entities remaining: ${world.entityCount}`);
++
++assert(winner !== null, `battle produced a winner (not a stalemate)`);
++assert(winner === 'red' || winner === 'blue', `winner is red or blue, got ${winner}`);
++assert(totalDamage > 0, `damage was actually dealt (${totalDamage})`);
++assert(killCount >= 10, `at least 10 kills (one side eliminated), got ${killCount}`);
++assert(resolutionFrame < 3600, `resolved within time limit (${resolutionFrame} frames)`);
++
++// ═══════════════════════════════════════════════════════════════════
++// TEST 2: Ranged gap documentation (archers fire but deal no damage)
++// ═══════════════════════════════════════════════════════════════════
++console.log('\n━━━ TEST 2: Ranged Gap (2 archers vs 2 swordsmen) ━━━');
++
++// Reset trackers
++totalDamage = 0; killCount = 0; damageEvents = 0; projectileSpawns = 0;
++rangedDamage = 0; meleeDamage = 0;
++
++const world2 = new World();
++const factory2 = new UnitFactory(world2);
++const ai2 = new AISystem(world2);
++const combat2 = new CombatSystem(world2);
++const cleanup2 = new CleanupSystem(world2);
++
++factory2.spawnSquad('archer', 2, { x: -15, z: 0 }, true, 3);
++factory2.spawnSquad('swordsman', 2, { x: 15, z: 0 }, false, 3);
++
++const projectilesBefore = projectileSpawns;
++for (let frame = 0; frame < 600; frame++) {  // 10 seconds
++  ai2.update(dt);
++  combat2.update(dt);
++  cleanup2.lateUpdate(dt);
++}
++const projectilesFired = projectileSpawns - projectilesBefore;
++
++console.log(`  Projectiles spawned (archer attacks): ${projectilesFired}`);
++console.log(`  Damage from ranged attacks: ${rangedDamage}`);
++console.log(`  Damage from melee: ${meleeDamage}`);
++
++assert(projectilesFired > 0, `archers fired projectiles (${projectilesFired})`);
++assert(rangedDamage === 0, `KNOWN LIMITATION: ranged damage is 0 (projectile:spawn unhandled — needs ProjectileSystem)`);
++
++// Archers will eventually be caught by melee swordsmen and take melee damage,
++// OR swordsmen may not reach them. Either way, the ranged gap is documented.
++
++// ═══════════════════════════════════════════════════════════════════
++// RESULT
++// ═══════════════════════════════════════════════════════════════════
++console.log(`\n${'='.repeat(60)}`);
++console.log(`RESULT: ${pass} passed, ${fail} failed`);
++console.log(`${'='.repeat(60)}`);
++if (fail === 0) {
++  console.log('✅ PASS — ECS runs full melee battles end-to-end');
++  process.exit(0);
++} else {
++  console.log('❌ FAIL');
++  process.exit(1);
++}
+diff --git a/test/ecs-bridge.test.js b/test/ecs-bridge.test.js
+new file mode 100644
+index 0000000..0cfd529
+--- /dev/null
++++ b/test/ecs-bridge.test.js
+@@ -0,0 +1,64 @@
++import { World } from '../src/ecs/World.js';
++import { UnitFactory } from '../src/ecs/UnitFactory.js';
++
++let pass = 0;
++let fail = 0;
++function assert(cond, msg) {
++  if (cond) { pass++; }
++  else { fail++; console.error(`FAIL: ${msg}`); }
++}
++
++const world = new World();
++const factory = new UnitFactory(world);
++
++const swordsman = factory.spawn('swordsman', 0, 0, 0, true);
++assert(swordsman.has('transform'), 'swordsman has transform');
++assert(swordsman.has('health'), 'swordsman has health');
++assert(swordsman.has('combat'), 'swordsman has combat');
++assert(swordsman.has('team'), 'swordsman has team');
++assert(swordsman.has('unitType'), 'swordsman has unitType');
++assert(swordsman.has('aiState'), 'swordsman has aiState');
++
++const squad = factory.spawnSquad('archer', 10, { x: 5, z: 0 }, false);
++assert(squad.length === 10, `spawnSquad returned 10 entities, got ${squad.length}`);
++
++assert(world.entityCount === 11, `entityCount === 11, got ${world.entityCount}`);
++
++const withTransform = world.query('transform', 'team');
++assert(withTransform.length === 11, `query(transform,team).length === 11, got ${withTransform.length}`);
++
++const combat = swordsman.get('combat');
++assert(combat.damage === 15, `swordsman damage === 15, got ${combat.damage}`);
++
++const health = swordsman.get('health');
++assert(health.hp === 100, `swordsman hp === 100, got ${health.hp}`);
++
++const team = swordsman.get('team');
++assert(team.isRed === true, 'swordsman is red');
++
++const archerCombat = squad[0].get('combat');
++assert(archerCombat.damage === 10, `archer damage === 10, got ${archerCombat.damage}`);
++assert(archerCombat.isRanged === true, 'archer is ranged');
++assert(archerCombat.range === 30, `archer range === 30, got ${archerCombat.range}`);
++
++const archerHealth = squad[0].get('health');
++assert(archerHealth.hp === 60, `archer hp === 60, got ${archerHealth.hp}`);
++
++const archerTeam = squad[0].get('team');
++assert(archerTeam.isBlue === true, 'archer is blue');
++
++const unitType = swordsman.get('unitType');
++assert(unitType.id === 'swordsman', `unitType.id === swordsman, got ${unitType.id}`);
++assert(unitType.speed === 5, `unitType.speed === 5, got ${unitType.speed}`);
++
++factory.clearAll();
++assert(world.entityCount === 0, `clearAll made entityCount 0, got ${world.entityCount}`);
++
++console.log(`\n${pass} passed, ${fail} failed`);
++if (fail === 0) {
++  console.log('PASS');
++  process.exit(0);
++} else {
++  console.log('FAIL');
++  process.exit(1);
++}
+diff --git a/test/ecs-integration.test.js b/test/ecs-integration.test.js
+new file mode 100644
+index 0000000..e3d0e99
+--- /dev/null
++++ b/test/ecs-integration.test.js
+@@ -0,0 +1,114 @@
++/**
++ * INTEGRATION TEST — Simulates the full game flow through ECSUnitManager
++ * Verifies: place units → syncToECS → ECS battle → syncFromECS → rendering data correct
++ */
++import { World } from '../src/ecs/World.js';
++import { ECSUnitManager } from '../src/ecs/ECSUnitManager.js';
++import { ECSGameController } from '../src/ecs/ECSGameController.js';
++import { EventBus } from '../src/core/EventBus.js';
++
++let pass = 0, fail = 0;
++function assert(cond, msg) {
++  if (cond) pass++; else { fail++; console.error(`  FAIL: ${msg}`); }
++}
++
++// ECSUnitManager needs scene/terrain — stub them (no Three.js needed for logic)
++const fakeScene = { add: () => {} };
++const fakeTerrain = { getHeightAt: () => 0 };
++
++const um = new ECSUnitManager(fakeScene, fakeTerrain);
++const ecs = new ECSGameController(um, null);  // no particles in test
++
++// ─── Step 1: Place units (like user clicking on battlefield) ──────
++console.log('\n━━━ Step 1: Place units ━━━');
++um.addUnit('swordsman', { x: -20, y: 0, z: 0 }, 'red');
++um.addUnit('swordsman', { x: -18, y: 0, z: 2 }, 'red');
++um.addUnit('swordsman', { x: -22, y: 0, z: -2 }, 'red');
++um.addUnit('archer', { x: 20, y: 0, z: 0 }, 'blue');
++um.addUnit('archer', { x: 22, y: 0, z: 2 }, 'blue');
++
++assert(um.getAliveCount('red') === 3, `3 red units, got ${um.getAliveCount('red')}`);
++assert(um.getAliveCount('blue') === 2, `2 blue units, got ${um.getAliveCount('blue')}`);
++assert(um.world.entityCount === 5, `5 ECS entities, got ${um.world.entityCount}`);
++
++const comp = um.getArmyComposition('red');
++assert(comp['Swordsman'] === 3, `red army has 3 swordsmen, got ${JSON.stringify(comp)}`);
++
++// ─── Step 2: Apply formations + syncToECS ─────────────────────────
++console.log('\n━━━ Step 2: Sync to ECS ━━━');
++// Simulate formation assignment (directly set positions like Formation.js does)
++const redUnits = um.getUnitsBySide('red');
++redUnits[0].position.set(-25, 0, 0);
++redUnits[1].position.set(-23, 0, 3);
++redUnits[2].position.set(-27, 0, -3);
++redUnits.forEach(u => u.rotation = 0);
++
++um.syncToECS();
++
++// Verify ECS entities have the formation positions
++const e0 = um.world.getEntity(redUnits[0].entityId);
++const tx0 = e0.get('transform');
++assert(tx0.x === -25, `ECS entity 0 x === -25 after sync, got ${tx0.x}`);
++assert(tx0.rotation === 0, `ECS entity 0 rotation === 0`);
++
++// ─── Step 3: Run ECS battle + verify syncFromECS ──────────────────
++console.log('\n━━━ Step 3: Run battle + verify render sync ━━━');
++let damageDealt = 0;
++EventBus.on('combat:damage:dealt', e => damageDealt += e.damage);
++
++const dt = 1 / 60;
++let winner = null;
++for (let frame = 0; frame < 3600; frame++) {
++  ecs.update(dt);  // This runs AI → projectiles → combat → cleanup → syncFromECS
++
++  const redAlive = um.getAliveCount('red');
++  const blueAlive = um.getAliveCount('blue');
++  if (redAlive === 0 || blueAlive === 0) {
++    winner = redAlive > 0 ? 'red' : 'blue';
++    break;
++  }
++}
++
++console.log(`  Winner: ${winner}`);
++console.log(`  Damage dealt: ${damageDealt}`);
++console.log(`  Red alive: ${um.getAliveCount('red')}, Blue alive: ${um.getAliveCount('blue')}`);
++
++assert(winner !== null, 'battle resolved');
++assert(damageDealt > 0, `damage was dealt (${damageDealt})`);
++
++// Verify legacy units are synced with ECS state (positions changed from formation)
++let positionChanged = false;
++for (const u of um.units) {
++  if (u.alive) {
++    const e = um.world.getEntity(u.entityId);
++    const tx = e.get('transform');
++    if (Math.abs(u.position.x - tx.x) > 0.01 || Math.abs(u.position.z - tx.z) > 0.01) {
++      fail++; console.error('  FAIL: legacy unit position not synced with ECS');
++      break;
++    }
++    positionChanged = true;
++  }
++}
++if (positionChanged) pass++;
++
++// ─── Step 4: Reset for new battle ─────────────────────────────────
++console.log('\n━━━ Step 4: Reset ━━━');
++ecs.reset();
++um.clearAll();
++
++assert(um.getAliveCount('red') === 0, 'red cleared');
++assert(um.getAliveCount('blue') === 0, 'blue cleared');
++assert(um.world.entityCount === 0, `ECS world cleared, got ${um.world.entityCount}`);
++assert(um.units.length === 0, 'legacy units cleared');
++
++// ─── Result ───────────────────────────────────────────────────────
++console.log(`\n${'='.repeat(60)}`);
++console.log(`RESULT: ${pass} passed, ${fail} failed`);
++console.log(`${'='.repeat(60)}`);
++if (fail === 0) {
++  console.log('✅ PASS — Full game flow works through ECSUnitManager');
++  process.exit(0);
++} else {
++  console.log('❌ FAIL');
++  process.exit(1);
++}
+diff --git a/test/ecs-ranged.test.js b/test/ecs-ranged.test.js
+new file mode 100644
+index 0000000..9a59a06
+--- /dev/null
++++ b/test/ecs-ranged.test.js
+@@ -0,0 +1,194 @@
++/**
++ * PHASE 1, STEP 4 — Ranged Combat Simulation (headless, Node)
++ *
++ * Proves ProjectileSystem handles projectile:spawn → flight → combat:damage:
++ *   Test 1: 5 archers vs 5 swordsmen → ranged damage > 0, battle resolves
++ *   Test 2: 1 catapult vs 5 clustered swordsmen → AOE hits multiple
++ *   Test 3: Mixed battle → both melee and ranged damage, battle resolves
++ */
++
++import { World } from '../src/ecs/World.js';
++import { UnitFactory } from '../src/ecs/UnitFactory.js';
++import { AISystem } from '../src/systems/AISystem.js';
++import { CombatSystem } from '../src/systems/CombatSystem.js';
++import { ProjectileSystem } from '../src/systems/ProjectileSystem.js';
++import { CleanupSystem } from '../src/systems/CleanupSystem.js';
++import { EventBus } from '../src/core/EventBus.js';
++
++let pass = 0, fail = 0;
++function assert(cond, msg) {
++  if (cond) pass++; else { fail++; console.error(`  FAIL: ${msg}`); }
++}
++
++function resetTrackers(tr) {
++  tr.totalDamage = 0; tr.killCount = 0; tr.damageEvents = 0;
++  tr.projectileSpawns = 0; tr.rangedDamage = 0; tr.meleeDamage = 0;
++}
++
++function countAlive(world, side) {
++  let n = 0;
++  for (const e of world.query('team', 'health')) {
++    const t = e.get('team'), h = e.get('health');
++    if (t.side === side && h.alive) n++;
++  }
++  return n;
++}
++
++const dt = 1 / 60;
++
++// ═══════════════════════════════════════════════════════════════════
++// TEST 1: Archers deal ranged damage (5 archers vs 5 swordsmen)
++// ═══════════════════════════════════════════════════════════════════
++console.log('\n━━━ TEST 1: Archers vs Swordsmen (5v5) ━━━');
++
++const t1 = { totalDamage: 0, killCount: 0, damageEvents: 0, projectileSpawns: 0, rangedDamage: 0, meleeDamage: 0 };
++const unsub1a = EventBus.on('combat:damage:dealt', e => {
++  t1.totalDamage += e.damage; t1.damageEvents++;
++  if (e.isMelee) t1.meleeDamage += e.damage; else t1.rangedDamage += e.damage;
++});
++const unsub1b = EventBus.on('combat:kill', () => { t1.killCount++; });
++const unsub1c = EventBus.on('projectile:spawn', () => { t1.projectileSpawns++; });
++
++const w1 = new World();
++const f1 = new UnitFactory(w1);
++const ai1 = new AISystem(w1);
++const ps1 = new ProjectileSystem(w1);
++const cs1 = new CombatSystem(w1);
++const cl1 = new CleanupSystem(w1);
++
++f1.spawnSquad('archer', 5, { x: -15, z: 0 }, true, 2);
++f1.spawnSquad('swordsman', 5, { x: 15, z: 0 }, false, 2);
++
++let winner1 = null;
++for (let frame = 0; frame < 3600; frame++) {
++  ai1.update(dt);
++  ps1.update(dt);
++  cs1.update(dt);
++  cl1.lateUpdate(dt);
++  const r = countAlive(w1, 'red'), b = countAlive(w1, 'blue');
++  if (r === 0 || b === 0) { winner1 = r > 0 ? 'red' : 'blue'; break; }
++}
++
++console.log(`  Winner: ${winner1}`);
++console.log(`  Projectiles fired: ${t1.projectileSpawns}`);
++console.log(`  Ranged damage: ${t1.rangedDamage}, Melee damage: ${t1.meleeDamage}`);
++console.log(`  Total damage: ${t1.totalDamage}, Kills: ${t1.killCount}`);
++
++assert(t1.projectileSpawns > 0, `archers fired projectiles (${t1.projectileSpawns})`);
++assert(t1.rangedDamage > 0, `ranged damage > 0 (${t1.rangedDamage})`);
++assert(t1.totalDamage > 0, `total damage > 0 (${t1.totalDamage})`);
++assert(winner1 !== null, `battle resolved with a winner`);
++assert(t1.killCount >= 5, `at least 5 kills (${t1.killCount})`);
++
++unsub1a(); unsub1b(); unsub1c();
++
++// ═══════════════════════════════════════════════════════════════════
++// TEST 2: Catapult AOE hits multiple targets
++// ═══════════════════════════════════════════════════════════════════
++console.log('\n━━━ TEST 2: Catapult AOE (1 catapult vs 5 swordsmen) ━━━');
++
++const t2 = { totalDamage: 0, killCount: 0, damageEvents: 0, projectileSpawns: 0, rangedDamage: 0, meleeDamage: 0 };
++const t2TargetsHit = new Map();
++const unsub2a = EventBus.on('combat:damage:dealt', e => {
++  t2.totalDamage += e.damage; t2.damageEvents++;
++  if (e.isMelee) t2.meleeDamage += e.damage; else t2.rangedDamage += e.damage;
++  if (!e.isMelee) {
++    if (!t2TargetsHit.has(e.targetId)) t2TargetsHit.set(e.targetId, 0);
++    t2TargetsHit.set(e.targetId, t2TargetsHit.get(e.targetId) + e.damage);
++  }
++});
++const unsub2b = EventBus.on('combat:kill', () => { t2.killCount++; });
++const unsub2c = EventBus.on('projectile:spawn', () => { t2.projectileSpawns++; });
++
++const w2 = new World();
++const f2 = new UnitFactory(w2);
++const ai2 = new AISystem(w2);
++const ps2 = new ProjectileSystem(w2);
++const cs2 = new CombatSystem(w2);
++const cl2 = new CleanupSystem(w2);
++
++f2.spawnSquad('catapult', 1, { x: -20, z: 0 }, true, 1);
++f2.spawnSquad('swordsman', 5, { x: 20, z: 0 }, false, 1.5);
++
++for (let frame = 0; frame < 600; frame++) {
++  ai2.update(dt);
++  ps2.update(dt);
++  cs2.update(dt);
++  cl2.lateUpdate(dt);
++}
++
++console.log(`  Projectiles fired: ${t2.projectileSpawns}`);
++console.log(`  Ranged damage: ${t2.rangedDamage}`);
++console.log(`  Distinct targets damaged by ranged: ${t2TargetsHit.size}`);
++console.log(`  Total damage: ${t2.totalDamage}, Kills: ${t2.killCount}`);
++
++assert(t2.projectileSpawns > 0, `catapult fired projectiles (${t2.projectileSpawns})`);
++assert(t2.rangedDamage > 0, `ranged damage > 0 (${t2.rangedDamage})`);
++assert(t2TargetsHit.size >= 2, `AOE hit at least 2 distinct targets (${t2TargetsHit.size})`);
++assert(t2.rangedDamage >= 60, `significant AOE damage (${t2.rangedDamage})`);
++
++unsub2a(); unsub2b(); unsub2c();
++
++// ═══════════════════════════════════════════════════════════════════
++// TEST 3: Mixed battle (ranged + melee + AOE)
++// ═══════════════════════════════════════════════════════════════════
++console.log('\n━━━ TEST 3: Mixed Battle ━━━');
++
++const t3 = { totalDamage: 0, killCount: 0, damageEvents: 0, projectileSpawns: 0, rangedDamage: 0, meleeDamage: 0 };
++const unsub3a = EventBus.on('combat:damage:dealt', e => {
++  t3.totalDamage += e.damage; t3.damageEvents++;
++  if (e.isMelee) t3.meleeDamage += e.damage; else t3.rangedDamage += e.damage;
++});
++const unsub3b = EventBus.on('combat:kill', () => { t3.killCount++; });
++const unsub3c = EventBus.on('projectile:spawn', () => { t3.projectileSpawns++; });
++
++const w3 = new World();
++const f3 = new UnitFactory(w3);
++const ai3 = new AISystem(w3);
++const ps3 = new ProjectileSystem(w3);
++const cs3 = new CombatSystem(w3);
++const cl3 = new CleanupSystem(w3);
++
++f3.spawnSquad('archer', 3, { x: -25, z: 0 }, true, 2);
++f3.spawnSquad('swordsman', 3, { x: -18, z: 0 }, true, 2);
++f3.spawnSquad('catapult', 1, { x: -30, z: 0 }, true, 1);
++f3.spawnSquad('spearman', 4, { x: 20, z: 0 }, false, 2);
++f3.spawnSquad('musketeer', 2, { x: 25, z: 0 }, false, 2);
++f3.spawnSquad('giant', 1, { x: 28, z: 0 }, false, 1);
++
++let winner3 = null;
++for (let frame = 0; frame < 3600; frame++) {
++  ai3.update(dt);
++  ps3.update(dt);
++  cs3.update(dt);
++  cl3.lateUpdate(dt);
++  const r = countAlive(w3, 'red'), b = countAlive(w3, 'blue');
++  if (r === 0 || b === 0) { winner3 = r > 0 ? 'red' : 'blue'; break; }
++}
++
++console.log(`  Winner: ${winner3}`);
++console.log(`  Projectiles fired: ${t3.projectileSpawns}`);
++console.log(`  Ranged damage: ${t3.rangedDamage}, Melee damage: ${t3.meleeDamage}`);
++console.log(`  Total damage: ${t3.totalDamage}, Kills: ${t3.killCount}`);
++
++assert(t3.projectileSpawns > 0, `ranged units fired (${t3.projectileSpawns})`);
++assert(t3.rangedDamage > 0, `ranged damage > 0 (${t3.rangedDamage})`);
++assert(t3.meleeDamage > 0, `melee damage > 0 (${t3.meleeDamage})`);
++assert(winner3 !== null, `battle resolved with a winner`);
++assert(t3.killCount >= 7, `at least 7 kills (${t3.killCount})`);
++
++unsub3a(); unsub3b(); unsub3c();
++
++// ═══════════════════════════════════════════════════════════════════
++// RESULT
++// ═══════════════════════════════════════════════════════════════════
++console.log(`\n${'='.repeat(60)}`);
++console.log(`RESULT: ${pass} passed, ${fail} failed`);
++console.log(`${'='.repeat(60)}`);
++if (fail === 0) {
++  console.log('✅ PASS — Ranged combat system works end-to-end');
++  process.exit(0);
++} else {
++  console.log('❌ FAIL');
++  process.exit(1);
++}
+-- 
+2.47.3
+

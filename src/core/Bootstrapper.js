@@ -7,6 +7,7 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { ProjectileSystem } from '../systems/ProjectileSystem.js';
 import { CleanupSystem } from '../systems/CleanupSystem.js';
 import { RenderSystem } from '../systems/RenderSystem.js';
+import { SpatialIndexSystem } from '../systems/SpatialIndexSystem.js';
 
 
 export class Bootstrapper {
@@ -17,6 +18,7 @@ export class Bootstrapper {
     this.world = new World();
     this.engine = new Engine();
 
+    this._add(new SpatialIndexSystem(this.world), 'update', 50);
     this._add(new AISystem(this.world), 'update', 10);
     this._add(new ProjectileSystem(this.world), 'update', 18);
     this._add(new CombatSystem(this.world), 'update', 20);
