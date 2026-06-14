@@ -13,6 +13,7 @@ import { UNIT_TYPES, FORMATION_TYPES } from './entities/UnitTypes.js';
 import { GameUI } from './ui/GameUI.js';
 import { Minimap } from './ui/Minimap.js';
 import { AudioEngine } from './audio/AudioEngine.js';
+import { BattleEncoder } from './replay/BattleEncoder.js';
 
 class Game {
   constructor() {
@@ -71,6 +72,15 @@ class Game {
     await this.delay(1200);
     this.ui.showScreen('main-menu');
     this.state = 'menu';
+
+    const hash = window.location.hash;
+    if (hash.startsWith('#battle=')) {
+      const code = hash.substring(8);
+      const setup = BattleEncoder.decode(code);
+      if (setup) {
+        this.loadSharedBattle(setup);
+      }
+    }
 
     this.animate();
   }
@@ -307,6 +317,9 @@ class Game {
         this.state = 'menu';
         this.audio.playSfx('click');
         break;
+      case 'share-battle':
+        this.shareCurrentBattle();
+        break;
     }
   }
 
@@ -380,6 +393,44 @@ class Game {
     this.audio.playSfx(winner === 'red' ? 'victory' : 'defeat');
     this.ui.showResults(winner, stats);
     this.state = 'results';
+  }
+
+  loadSharedBattle(setup) {
+    this.unitManager.clearAll();
+
+    for (const unit of setup.units) {
+      const pos = new THREE.Vector3(unit.x, 0, unit.z);
+      this.unitManager.addUnit(unit.type, pos, unit.side);
+    }
+
+    this.selectedFormation = setup.formation || 'line';
+    this.ecsGame.setSeed(setup.seed);
+    this.unitManager.syncToECS();
+
+    this.battleTime = 0;
+    this.ui.hideHint();
+    this.audio.playSfx('fight');
+    this.ui.showScreen('battle');
+    this.state = 'battle';
+    this.ui.updateBattleHUD(this.unitManager.getStats());
+
+    this.ui.showHint('▶ Replaying shared battle');
+  }
+
+  shareCurrentBattle() {
+    const units = this.unitManager.units
+      .filter(u => u.alive)
+      .map(u => ({ type: u.type, x: Math.round(u.position.x * 10) / 10, z: Math.round(u.position.z * 10) / 10, side: u.side }));
+
+    const seed = this.ecsGame.getSeed();
+    const code = BattleEncoder.encode({ seed, units, formation: this.selectedFormation });
+    const url = `${window.location.origin}${window.location.pathname}#battle=${code}`;
+
+    navigator.clipboard.writeText(url).then(() => {
+      this.ui.showHint('🔗 Battle link copied to clipboard! Share it anywhere.');
+    }).catch(() => {
+      prompt('Copy this battle link:', url);
+    });
   }
 
   animate() {
