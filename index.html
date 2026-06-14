@@ -131,9 +131,18 @@
       -webkit-backdrop-filter: blur(8px);
     }
 
+    /* Fix: menu particle canvas must be absolutely positioned (was pushing content down) */
+    #bg-particles-menu {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 1; pointer-events: none;
+    }
+
     .menu-content {
       position: relative; z-index: 2;
       text-align: center; padding: 2rem;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 100%; max-width: 500px;
     }
 
     .menu-title {
@@ -158,12 +167,49 @@
       letter-spacing: 0.8em;
       text-transform: uppercase;
       color: var(--text-dim);
-      margin-bottom: 3rem;
+      margin-bottom: 1rem;
+      padding-left: 0.8em; /* compensate for letter-spacing centering */
+    }
+
+    .menu-description {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(0.7rem, 2vw, 0.95rem);
+      font-weight: 400;
+      color: var(--text-secondary);
+      max-width: 340px;
+      line-height: 1.5;
+      margin-bottom: 2.5rem;
+      letter-spacing: 0.02em;
     }
 
     .menu-buttons {
       display: flex; flex-direction: column;
       gap: 0.8rem; align-items: center;
+      width: 100%;
+    }
+
+    .menu-features {
+      display: flex; gap: 1.5rem;
+      margin-top: 3rem;
+      flex-wrap: wrap; justify-content: center;
+    }
+    .menu-feature {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 0.2rem;
+    }
+    .menu-feature .feature-num {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.4rem; font-weight: 900;
+      background: linear-gradient(135deg, var(--fire-orange), var(--fire-yellow));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .menu-feature .feature-label {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.5rem; font-weight: 400;
+      letter-spacing: 0.15em; text-transform: uppercase;
+      color: var(--text-dim);
     }
 
     /* ═══════════════════════ BUTTONS ═══════════════════════ */
@@ -814,9 +860,24 @@
       <div class="menu-content">
         <div class="menu-title">WARZONE</div>
         <div class="menu-tagline">Epic Battle Simulator</div>
+        <p class="menu-description">Build your army. Choose your formation. Watch thousands of warriors clash in real-time 3D combat.</p>
         <div class="menu-buttons">
-          <button class="game-btn primary" data-action="quick-battle">Quick Battle</button>
-          <button class="game-btn" data-action="sandbox">Sandbox Mode</button>
+          <button class="game-btn primary" data-action="quick-battle">⚔️ Quick Battle</button>
+          <button class="game-btn" data-action="sandbox"> Sandbox Mode</button>
+        </div>
+        <div class="menu-features">
+          <div class="menu-feature">
+            <span class="feature-num">8</span>
+            <span class="feature-label">Unit Types</span>
+          </div>
+          <div class="menu-feature">
+            <span class="feature-num">4</span>
+            <span class="feature-label">Formations</span>
+          </div>
+          <div class="menu-feature">
+            <span class="feature-num">500+</span>
+            <span class="feature-label">Warriors</span>
+          </div>
         </div>
       </div>
     </div>
