@@ -2,7 +2,7 @@ let _counter = 0;
 export class Entity {
   constructor(world, id) {
     this._world = world;
-    this.id = id || `e_${++_counter}_${Date.now().toString(36)}`;
+    this.id = id || `e_${++_counter}`;
     this._components = new Map();
     this._alive = true;
   }

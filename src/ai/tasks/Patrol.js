@@ -9,7 +9,9 @@ export class Patrol extends BTNode {
     if (!bb.patrolTarget || (Math.abs(tx.x - bb.patrolTarget.x) < 1 && Math.abs(tx.z - bb.patrolTarget.z) < 1)) {
       bb.patrolTimer = (bb.patrolTimer ?? 0) + dt;
       if (bb.patrolTimer < this.pauseDuration) return BTStatus.RUNNING;
-      const angle = Math.random() * Math.PI * 2; const dist = 5 + Math.random() * this.wanderRadius;
+      const rng = bb.rng;
+      const angle = (rng ? rng.range(0, Math.PI * 2) : Math.random() * Math.PI * 2);
+      const dist = 5 + (rng ? rng.range(0, this.wanderRadius) : Math.random() * this.wanderRadius);
       bb.patrolTarget = { x: sx + Math.cos(angle) * dist, z: sz + Math.sin(angle) * dist };
       bb.patrolTimer = 0;
     }

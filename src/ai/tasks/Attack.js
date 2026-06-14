@@ -28,7 +28,8 @@ export class Attack extends BTNode {
   _calcDamage(bb, target) {
     const c = bb.combat; const tc = target.get('combat');
     let d = c.damage;
-    if (c.shieldChance > 0 && Math.random() < c.shieldChance) return 0;
+    const rng = bb.rng;
+    if (c.shieldChance > 0 && (rng ? rng.next() : Math.random()) < c.shieldChance) return 0;
     if (c.special === 'antiCavalry' && tc?.special === 'charge') d *= c.bonusVsCavalry;
     if (c.special === 'charge' && c.charging) { d *= c.chargeMultiplier; c.charging = false; }
     if (c.special === 'flank') {

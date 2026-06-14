@@ -1,14 +1,15 @@
 import { EventBus } from '../core/EventBus.js';
 import { BehaviorRegistry } from '../ai/BehaviorRegistry.js';
 export class AISystem {
-  constructor(world) { this.world = world; this.registry = new BehaviorRegistry(); this._unsubs = [EventBus.on('ecs:entity:created', e => this._initBB(e.id))]; }
+  constructor(world) { this.world = world; this.registry = new BehaviorRegistry(); this.rng = null; this._unsubs = [EventBus.on('ecs:entity:created', e => this._initBB(e.id))]; }
+  setRng(rng) { this.rng = rng; return this; }
   update(dt) {
     const ents = this.world.query('transform', 'health', 'team', 'combat', 'aiState');
     for (const entity of ents) {
       const ai = entity.get('aiState'); if (!ai.enabled) continue;
       const tree = this.registry.get(ai.behaviorTreeId); if (!tree) continue;
       const bb = ai.bb;
-      bb.entity = entity; bb.world = this.world; bb.transform = entity.get('transform'); bb.combat = entity.get('combat'); bb.team = entity.get('team'); bb.unitType = entity.get('unitType'); bb.engageRange = ai.engageRange;
+      bb.entity = entity; bb.world = this.world; bb.transform = entity.get('transform'); bb.combat = entity.get('combat'); bb.team = entity.get('team'); bb.unitType = entity.get('unitType'); bb.engageRange = ai.engageRange; bb.rng = this.rng;
       if (bb.spawnPos === undefined && bb.transform) bb.spawnPos = { x: bb.transform.x, z: bb.transform.z };
       tree.tick(bb, dt);
       EventBus.emit('render:markdirty', { id: entity.id });

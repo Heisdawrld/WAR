@@ -12,6 +12,7 @@ import { CombatSystem } from '../systems/CombatSystem.js';
 import { ProjectileSystem } from '../systems/ProjectileSystem.js';
 import { CleanupSystem } from '../systems/CleanupSystem.js';
 import { EventBus } from '../core/EventBus.js';
+import { SeedRandom } from '../utils/SeedRandom.js';
 
 export class ECSGameController {
   constructor(unitManager, particles = null) {
@@ -24,6 +25,10 @@ export class ECSGameController {
     this.projectiles = new ProjectileSystem(this.world);
     this.combat = new CombatSystem(this.world);
     this.cleanup = new CleanupSystem(this.world);
+
+    // Deterministic RNG — injected into AISystem so all tasks use seeded randomness
+    this.rng = new SeedRandom();
+    this.ai.setRng(this.rng);
 
     // Hook ECS events to visual particle system (if provided)
     this._unsubs = [];
@@ -63,6 +68,14 @@ export class ECSGameController {
   setParticles(particles) {
     this.particles = particles;
   }
+
+  setSeed(seed) {
+    this.rng = new SeedRandom(seed);
+    this.ai.setRng(this.rng);
+    return this;
+  }
+
+  getSeed() { return this.rng.seed; }
 
   /**
    * Run one ECS update tick. Call from main.js animate() loop.
