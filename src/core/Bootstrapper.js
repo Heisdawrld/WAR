@@ -4,8 +4,10 @@ import { EventBus } from './EventBus.js';
 import { SeedRandom } from '../utils/SeedRandom.js';
 import { AISystem } from '../systems/AISystem.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
+import { ProjectileSystem } from '../systems/ProjectileSystem.js';
 import { CleanupSystem } from '../systems/CleanupSystem.js';
 import { RenderSystem } from '../systems/RenderSystem.js';
+
 
 export class Bootstrapper {
   constructor() { this.world = null; this.engine = null; this.rng = null; this.systems = []; }
@@ -15,8 +17,9 @@ export class Bootstrapper {
     this.world = new World();
     this.engine = new Engine();
 
-    this._add(new CombatSystem(this.world), 'update', 20);
     this._add(new AISystem(this.world), 'update', 10);
+    this._add(new ProjectileSystem(this.world), 'update', 18);
+    this._add(new CombatSystem(this.world), 'update', 20);
     this._add(new RenderSystem(this.world, scene), 'render', 100);
     this._add(new CleanupSystem(this.world), 'lateUpdate', 0);
 

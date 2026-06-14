@@ -4,10 +4,10 @@ import { GameCamera } from './engine/camera.js';
 import { Terrain } from './engine/terrain.js';
 import { createLighting } from './engine/lighting.js';
 import { PostProcessing } from './engine/postprocessing.js';
-import { UnitManager } from './entities/UnitManager.js';
-import { ProjectileSystem } from './entities/Projectile.js';
+import { ECSUnitManager } from './ecs/ECSUnitManager.js';
+import { ECSGameController } from './ecs/ECSGameController.js';
+import { VisualProjectiles } from './ecs/VisualProjectiles.js';
 import { ParticleSystem } from './entities/ParticleSystem.js';
-import { BehaviorTree } from './ai/BehaviorTree.js';
 import { Formation } from './ai/Formation.js';
 import { UNIT_TYPES, FORMATION_TYPES } from './entities/UnitTypes.js';
 import { GameUI } from './ui/GameUI.js';
@@ -47,12 +47,10 @@ class Game {
     this.terrain = new Terrain(this.scene);
     this.ui.setLoaderProgress(60);
 
-    this.unitManager = new UnitManager(this.scene, this.terrain);
-    this.projectiles = new ProjectileSystem(this.scene, this.terrain);
-    this.projectiles.setUnitManager(this.unitManager);
+    this.unitManager = new ECSUnitManager(this.scene, this.terrain);
     this.particles = new ParticleSystem(this.scene);
-    this.behavior = new BehaviorTree(this.unitManager, this.terrain);
-    this.behavior.setParticles(this.particles);
+    this.ecsGame = new ECSGameController(this.unitManager, this.particles);
+    this.visualProjectiles = new VisualProjectiles(this.scene, this.unitManager.world);
     this.formation = new Formation();
     this.ui.setLoaderProgress(75);
 
@@ -314,6 +312,8 @@ class Game {
 
   startArmyBuilder() {
     this.unitManager.clearAll();
+    this.visualProjectiles.clear();
+    this.ecsGame.reset();
     this.activeSide = 'red';
     this.ui.setActiveSide('red');
     this.ui.updateUnitCount(0, 250);
@@ -343,6 +343,9 @@ class Game {
 
     this.assignFormations('red', this.unitManager.getUnitsBySide('red'));
     this.assignFormations('blue', this.unitManager.getUnitsBySide('blue'));
+
+    // Sync formation positions INTO ECS entities before battle starts
+    this.unitManager.syncToECS();
 
     this.battleTime = 0;
     this.ui.hideHint();
@@ -389,11 +392,11 @@ class Game {
       const battleDelta = delta * this.battleSpeed;
       this.battleTime += battleDelta;
 
-      this.behavior.update(battleDelta);
+      // ECS drives ALL game logic (AI, combat, projectiles, cleanup)
+      this.ecsGame.update(battleDelta);
       this.unitManager.update(battleDelta, this.battleTime);
-      this.projectiles.update(battleDelta);
       this.particles.update(battleDelta);
-      this.handleCombat(battleDelta);
+      this.visualProjectiles.update(battleDelta);
 
       const stats = this.unitManager.getStats();
       this.ui.updateBattleHUD(stats);
@@ -415,23 +418,6 @@ class Game {
       this.postProcessing.render();
     } else {
       this.renderer.render(this.scene, this.camera.getCamera());
-    }
-  }
-
-  handleCombat(delta) {
-    const units = this.unitManager.getAliveUnits();
-    for (const unit of units) {
-      if (unit.attackCooldown > 0 || !unit.alive) continue;
-      if (!unit.typeData.isRanged) continue;
-
-      const enemy = this.unitManager.findNearestEnemyInRange(unit);
-      if (!enemy) continue;
-
-      const dist = unit.position.distanceTo(enemy.position);
-      if (dist <= unit.typeData.range) {
-        this.projectiles.spawn(unit, enemy, unit.typeData.damage);
-        unit.attackCooldown = 1 / unit.typeData.attackSpeed;
-      }
     }
   }
 
