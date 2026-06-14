@@ -51,10 +51,17 @@
   ├ SpatialHash + SpatialIndexSystem (priority 50, runs before AI) ✅
   ├ FindTarget fast path, brute-force fallback preserved ✅
   └ 3.36x speedup at 1000 units, correctness verified (5 tests) ✅
-⏳ Phase 2 — Step 2: Data-driven units (modding foundation) — NEXT
+✅ Phase 2 — Step 2: Data-driven units (modding foundation) ✅
+  ├ units.json + formations.json + DataLoader (validation + clamping) ✅
+  └ Backward-compatible UnitTypes.js with hardcoded fallback ✅
+✅ Phase 2 — Step 3: Deterministic simulation (replay foundation) ✅
+  ├ AISystem injects seeded RNG into blackboards ✅
+  ├ Patrol.js + Attack.js use bb.rng (Math.random fallback) ✅
+  ├ Entity IDs deterministic (Date.now removed) ✅
+  └ Same seed = byte-identical battle proven (16 tests) ✅
 ⏳ CHECKPOINT: Browser QA needed (owner) — major arch changes unverified in-browser
 
-Total: 62 assertions passing across 5 test suites. vite build succeeds.
+Total: 214 assertions passing across 7 test suites. vite build succeeds.
 
 ### Architecture after Phase 1
 - main.js uses ECSUnitManager (drop-in replacement for UnitManager)
@@ -73,9 +80,9 @@ Total: 62 assertions passing across 5 test suites. vite build succeeds.
 | Phase | Description |
 |---|---|
 | Phase 0 | Foundation — ✅ Complete |
-| Phase 1 | Content & Gameplay |
-| Phase 2 | Audio & Visual |
-| Phase 3 | Game Modes |
+| Phase 1 | ECS Replaces Monolith — ✅ Complete |
+| Phase 2 | Scale + Content + Determinism — ✅ Steps 1-3 Complete |
+| Phase 3 | Shareable Replays + Game Modes — Next |
 | Phase 4 | Multiplayer & Backend |
 | Phase 5 | Monetization |
 
@@ -100,6 +107,9 @@ Built: EventBus, Engine, ECS, StateMachine, SeedRandom, RenderSystem, AISystem, 
 
 ### Session 003 — 2026-06-14 (Arena leads, MiMo implements)
 - Arena promoted to project lead; MiMo as implementer.
-- Phase 2 Step 1: MiMo built SpatialHash + SpatialIndexSystem + FindTarget integration.
-  - 3.36x speedup at 1000 units; correctness verified vs brute-force.
-  - 62 total assertions across 5 suites. Pushed to main (commit 9fdeb39).
+- Phase 2 Step 1: SpatialHash + SpatialIndexSystem + FindTarget integration (5 tests)
+- Phase 2 Step 2: Data-driven units — units.json + DataLoader + backward-compat (136 tests)
+- Phase 2 Step 3: Deterministic simulation — seeded RNG injected, same seed = same battle (16 tests)
+- Arena caught and fixed flaky integration test (nondeterministic patrol RNG in small battles)
+- Arena caught MiMo's correct color values (MiMo ignored Arena's wrong decimal conversions)
+- 214 total assertions across 7 suites. All pushed to main.
