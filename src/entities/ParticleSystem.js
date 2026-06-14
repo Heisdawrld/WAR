@@ -34,6 +34,8 @@ export class ParticleSystem {
 
   emit(position, config) {
     const count = config.count || 5;
+    // Accept both THREE.Vector3 and plain {x,y,z} objects
+    const pos = position.clone ? position.clone() : new THREE.Vector3(position.x, position.y, position.z);
     for (let i = 0; i < count && this.particles.length < MAX_PARTICLES; i++) {
       const vel = new THREE.Vector3(
         (Math.random() - 0.5) * (config.spread || 3),
@@ -46,7 +48,7 @@ export class ParticleSystem {
       const b = (config.colorB || 0.1) + (Math.random() - 0.5) * 0.1;
 
       this.particles.push({
-        position: position.clone().add(new THREE.Vector3(
+        position: pos.clone().add(new THREE.Vector3(
           (Math.random() - 0.5) * 0.5,
           Math.random() * 0.5,
           (Math.random() - 0.5) * 0.5
