@@ -47,8 +47,14 @@
   ├ Step 4: ProjectileSystem — ranged + AOE combat (14 tests) ✅
   ├ Step 5: ECS wired into main.js via ECSUnitManager + ECSGameController ✅
   └ Step 6: Integration test — full game flow through ECSUnitManager (13 tests) ✅
+✅ Phase 2 — Step 1: Spatial hash (scale to 10K units) ✅
+  ├ SpatialHash + SpatialIndexSystem (priority 50, runs before AI) ✅
+  ├ FindTarget fast path, brute-force fallback preserved ✅
+  └ 3.36x speedup at 1000 units, correctness verified (5 tests) ✅
+⏳ Phase 2 — Step 2: Data-driven units (modding foundation) — NEXT
+⏳ CHECKPOINT: Browser QA needed (owner) — major arch changes unverified in-browser
 
-Total: 57 assertions passing across 4 test suites. vite build succeeds.
+Total: 62 assertions passing across 5 test suites. vite build succeeds.
 
 ### Architecture after Phase 1
 - main.js uses ECSUnitManager (drop-in replacement for UnitManager)
@@ -91,3 +97,9 @@ Built: EventBus, Engine, ECS, StateMachine, SeedRandom, RenderSystem, AISystem, 
 - Step 5: Arena built ECSUnitManager + ECSGameController + VisualProjectiles; wired into main.js
 - Step 6: Integration test proves full game flow (13 tests pass)
 - Phase 1 COMPLETE: ECS replaces monolith. 57 total assertions passing.
+
+### Session 003 — 2026-06-14 (Arena leads, MiMo implements)
+- Arena promoted to project lead; MiMo as implementer.
+- Phase 2 Step 1: MiMo built SpatialHash + SpatialIndexSystem + FindTarget integration.
+  - 3.36x speedup at 1000 units; correctness verified vs brute-force.
+  - 62 total assertions across 5 suites. Pushed to main (commit 9fdeb39).
