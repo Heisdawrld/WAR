@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { DataLoader } from '../data/DataLoader.js';
 
 export const UNIT_TYPES = {
   swordsman: {
@@ -120,3 +120,13 @@ export const FORMATION_TYPES = {
   circle: { name: 'Circle', icon: '◎', spacing: 4 },
   wedge: { name: 'Wedge', icon: '▼', spacing: 3 }
 };
+
+export async function loadUnitData() {
+  try {
+    const units = await DataLoader.loadUnits();
+    const formations = await DataLoader.loadFormations();
+    return { units, formations };
+  } catch {
+    return { units: UNIT_TYPES, formations: FORMATION_TYPES };
+  }
+}

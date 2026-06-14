@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "formations": {
+    "line": { "name": "Line", "icon": "━━━", "spacing": 3 },
+    "square": { "name": "Square", "icon": "▣", "spacing": 3 },
+    "circle": { "name": "Circle", "icon": "◎", "spacing": 4 },
+    "wedge": { "name": "Wedge", "icon": "▼", "spacing": 3 }
+  }
+}
